@@ -5,7 +5,7 @@ export enum ActionId {
 	Default = 'sample_action',
 }
 
-export function UpdateActions(self: ModuleInstance): CompanionActionDefinitions {
+export function UpdateActions(self: ModuleInstance): void {
 	const actions: { [id in ActionId]: CompanionActionDefinition | undefined } = {
 		[ActionId.Default]: {
 			name: 'My First Action',
@@ -25,5 +25,5 @@ export function UpdateActions(self: ModuleInstance): CompanionActionDefinitions 
 		},
 	}
 
-	return actions
+	self.setActionDefinitions(actions);
 }

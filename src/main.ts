@@ -3,7 +3,7 @@ import { UpgradeScripts } from './upgrades'
 import { Config, configFields } from './config'
 import { UpdateActions } from './actions'
 import { UpdateFeedbacks } from './feedbacks'
-import { setVariableDefinitions } from './variables'
+import { UpdateVariables } from './variables'
 
 export class ModuleInstance extends InstanceBase<Config> {
 	public config?: Config
@@ -35,7 +35,7 @@ export class ModuleInstance extends InstanceBase<Config> {
 	}
 
 	updateActions() {
-		this.setActionDefinitions(UpdateActions(this));
+		UpdateActions(this);
 	}
 
 	updateFeedbacks() {
@@ -43,7 +43,7 @@ export class ModuleInstance extends InstanceBase<Config> {
 	}
 
 	updateVariableDefinitions() {
-		setVariableDefinitions(this)
+		UpdateVariables(this)
 	}
 }
 
