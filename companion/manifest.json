@@ -1,7 +1,7 @@
 {
-	"id": "your-module-name",
-	"name": "your-module-name",
-	"shortname": "module-shortname",
+	"id": "dmxcontrolprojects-dmxcontrol",
+	"name": "dmxcontrolprojects-dmxcontrol",
+	"shortname": "dmxcontrol",
 	"description": "A short one line description of your module",
 	"version": "0.0.0",
 	"license": "MIT",
@@ -9,7 +9,7 @@
 	"bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
 	"maintainers": [
 		{
-			"name": "Your name",
+			"name": "Samuel Hufen",
 			"email": "Your email"
 		}
 	],
@@ -17,10 +17,10 @@
 		"type": "node18",
 		"api": "nodejs-ipc",
 		"apiVersion": "0.0.0",
-		"entrypoint": "../main.js"
+		"entrypoint": "../dist/main.js"
 	},
 	"legacyIds": [],
-	"manufacturer": "Your company",
-	"products": ["Your product"],
+	"manufacturer": "DMXControl PRojects e.V.",
+	"products": ["DMXControl 3"],
 	"keywords": []
 }

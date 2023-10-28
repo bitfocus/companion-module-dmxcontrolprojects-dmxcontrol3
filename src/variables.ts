@@ -1,4 +1,6 @@
-module.exports = async function (self) {
+import { ModuleInstance } from './main'
+
+export function setVariableDefinitions(self: ModuleInstance): void {
 	self.setVariableDefinitions([
 		{ variableId: 'variable1', name: 'My first variable' },
 		{ variableId: 'variable2', name: 'My second variable' },
