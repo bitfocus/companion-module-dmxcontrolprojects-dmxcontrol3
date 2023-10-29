@@ -2,3 +2,4 @@ package.json
 /LICENSE.md
 dist/
 package-lock.json
+src/generated/
