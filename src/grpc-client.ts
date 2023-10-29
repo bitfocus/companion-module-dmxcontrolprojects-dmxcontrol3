@@ -2,16 +2,20 @@ import { UnaryCallback } from "@grpc/grpc-js/build/src/client";
 import * as GRPC from '@grpc/grpc-js'
 import * as OS from 'os'
 
-import {ClientServiceClient, ConnectedClientServiceClient} from "./generated/Common/UmbraClientService_grpc_pb";
-import { ClientInfo, ClientProgramInfo, EClientType, PingPong, ProgramInfo, UmbraLoginRequest, UmbraLoginResponse } from "./generated/Common/Types/UmbraServiceTypes_pb";
+import { ClientServiceClient, ConnectedClientServiceClient } from "./generated/Common/UmbraClientService_grpc_pb";
+import { ClientInfo, ClientProgramInfo, EClientType, PingPong, ProgramInfo, ReadyToWorkState, UmbraClientReadyToWorkNotification, UmbraLoginRequest, UmbraLoginResponse } from "./generated/Common/Types/UmbraServiceTypes_pb";
 
 export class GRPCClient {
     private umbraClient: ClientServiceClient
     private clientProgramInfo: ClientProgramInfo
-    private connectedClient: ConnectedClientServiceClient
+    private connectedClient?: ConnectedClientServiceClient
+    private endpoint: string
 
+    private metadata?: GRPC.Metadata;
 
     constructor(host: string, port: number, deviceName: string) {
+        this.endpoint = `${host}:${port}`
+
         this.umbraClient = new ClientServiceClient(`${host}:${port}`, GRPC.credentials.createInsecure())
 
         const programInfo = new ProgramInfo();
@@ -26,20 +30,38 @@ export class GRPCClient {
         clientInfo.setType(EClientType.EXTERNALTOOL);
         clientInfo.setClientname(deviceName);
         clientInfo.setClientcapabilities(0);
-        
+
         this.clientProgramInfo = new ClientProgramInfo();
         this.clientProgramInfo.setPrograminfo(programInfo);
         this.clientProgramInfo.setClientinfo(clientInfo);
-        this.connectedClient = new ConnectedClientServiceClient(`${host}:${port}`, GRPC.credentials.createInsecure());
-        const stream = this.connectedClient.ping();
-        stream.on('data', (data: PingPong) => {
-            console.log(data)
-            stream.write(data);
-        });
     }
 
-    login(netid: string, callback: UnaryCallback<UmbraLoginResponse>) {
+    login(netid: string) {
         this.clientProgramInfo.getClientinfo()?.setNetworkid(netid);
-        this.umbraClient.login(new UmbraLoginRequest().setClient(this.clientProgramInfo), callback);
+        this.umbraClient.login(new UmbraLoginRequest().setClient(this.clientProgramInfo), (err, response) => {
+            if (err) {
+                console.error(err)
+                return
+            }
+            console.log(response);
+            this.metadata = new GRPC.Metadata();
+            this.metadata.add("SessionID", response.getSessionid());
+            this.connectedClient = new ConnectedClientServiceClient(this.endpoint, GRPC.credentials.createInsecure());
+            this.connectedClient.reportReadyToWork(new UmbraClientReadyToWorkNotification().setState(new ReadyToWorkState().setReadytowork(true)),this.metadata, (err, response) => {
+                if (err) {
+                    console.error(err)
+                    return
+                }
+                console.log(response);
+            });
+            const stream = this.connectedClient.ping(this.metadata);
+            stream.on('error', (err) => {
+                console.error(err);
+            });
+            stream.on('data', (data: PingPong) => {
+                console.log(data);
+            });
+            const interval = setInterval(() => stream.write(new PingPong()), 10000);
+        });
     }
 }
