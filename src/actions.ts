@@ -25,5 +25,5 @@ export function UpdateActions(self: ModuleInstance): void {
 		},
 	}
 
-	self.setActionDefinitions(actions);
+	self.setActionDefinitions(actions)
 }

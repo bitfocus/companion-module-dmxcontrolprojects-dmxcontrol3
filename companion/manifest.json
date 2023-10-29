@@ -1,7 +1,7 @@
 {
 	"id": "dmxcontrolprojects-dmxcontrol",
 	"name": "dmxcontrolprojects-dmxcontrol",
-	"shortname": "dmxcontrol",
+	"shortname": "DMXControl",
 	"description": "A short one line description of your module",
 	"version": "0.0.0",
 	"license": "MIT",
@@ -20,7 +20,7 @@
 		"entrypoint": "../dist/main.js"
 	},
 	"legacyIds": [],
-	"manufacturer": "DMXControl PRojects e.V.",
+	"manufacturer": "DMXControl Projects e.V.",
 	"products": ["DMXControl 3"],
 	"keywords": []
 }

@@ -4,6 +4,7 @@ export interface Config {
 	host: string
 	port: number
 	netid: string
+	devicename: string
 }
 
 export const configFields = (): SomeCompanionConfigField[] => {
