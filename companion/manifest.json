@@ -1,7 +1,7 @@
 {
     "id": "dmxcontrolprojects-dmxcontrol",
     "name": "dmxcontrolprojects-dmxcontrol",
-    "shortname": "DMXControl",
+    "shortname": "DMXControl 3",
     "description": "A short one line description of your module",
     "version": "0.0.0",
     "license": "MIT",
@@ -9,8 +9,7 @@
     "bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
     "maintainers": [
         {
-            "name": "Samuel Hufen",
-            "email": "Your email"
+            "name": "Samuel Hufen"
         }
     ],
     "runtime": {

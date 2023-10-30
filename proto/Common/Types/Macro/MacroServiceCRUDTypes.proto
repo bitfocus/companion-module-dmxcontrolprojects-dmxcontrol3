@@ -13,6 +13,23 @@ message GetMacrosResponse {
 message MacroCreationRequest {
 	string requestId = 2;
 }
+message MacroSetButtonStateRequest {
+	string requestId = 2;
+	string macroId = 3;
+	uint32 buttonNumber = 4;
+	bool active = 5;
+}
+message MacroSetFaderStateRequest {
+	string requestId = 2;
+	string macroId = 3;
+	uint32 faderNumber = 4;
+	oneof faderPosition
+	{
+		double increment = 5;
+		double absolut = 6;
+	}
+}
+
 message MacroDeletionRequest {
 	string requestId = 2;
 	string macroId = 3;

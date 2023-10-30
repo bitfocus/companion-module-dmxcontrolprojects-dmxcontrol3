@@ -1,7 +1,7 @@
-import { ModuleInstance } from "./main";
+import { DMXCModuleInstance } from "./main";
 import { combineRgb } from "@companion-module/base";
 
-export function UpdateFeedbacks(self: ModuleInstance) {
+export function UpdateFeedbacks(self: DMXCModuleInstance) {
     self.setFeedbackDefinitions({
         ChannelState: {
             name: "Example Feedback",

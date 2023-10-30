@@ -18,17 +18,28 @@ import {
     UmbraLoginRequest,
     UmbraLogoffRequest
 } from "./generated/Common/Types/UmbraServiceTypes_pb";
-import { ModuleInstance } from "./main";
+import { DMXCModuleInstance } from "./main";
 import { InstanceStatus } from "@companion-module/base";
 import { DMXCNetServiceClient } from "./generated/Common/UmbraClientService_grpc_pb";
+import { MacroClientClient } from "./generated/Client/MacroClient_grpc_pb";
+import {
+    GetMultipleRequest,
+    GetRequest
+} from "./generated/Common/Types/CommonTypes_pb";
+import { UserClientClient } from "./generated/Client/UserClient_grpc_pb";
+import { UserContextRequest } from "./generated/Common/Types/User/UserServiceTypes_pb";
+import { hashPasswordDMXC, loggedMethod } from "./utils";
 
 export class GRPCClient {
     private umbraClient: ClientServiceClient;
     private clientProgramInfo: ClientProgramInfo;
     private connectedClient?: ConnectedClientServiceClient;
+    private macroClient?: MacroClientClient;
     private endpoint: string;
 
     private metadata?: GRPC.Metadata;
+
+    private interval?: NodeJS.Timeout;
 
     constructor(host: string, port: number, deviceName: string) {
         this.endpoint = `${host}:${port}`;
@@ -82,7 +93,6 @@ export class GRPCClient {
         port: number,
         devicename: string,
         callback: (
-            err: Error | null,
             response: InformClientExistsResponse
         ) => void
     ) {
@@ -94,22 +104,18 @@ export class GRPCClient {
             new InformClientExistsRequest().setInfo(
                 this.getClientProgramInfo(devicename)
             ),
-            (err, response) => {
-                callback(err, response);
+            loggedMethod((response) => {
+                callback(response);
                 client.close();
-            }
+            })
         );
     }
 
-    public login(netid: string, instance: ModuleInstance) {
+    public login(netid: string, instance: DMXCModuleInstance) {
         this.clientProgramInfo.getClientinfo()?.setNetworkid(netid);
         this.umbraClient.login(
             new UmbraLoginRequest().setClient(this.clientProgramInfo),
-            (err, response) => {
-                if (err) {
-                    console.error(err);
-                    return;
-                }
+            loggedMethod((response) => {
                 console.log(response);
                 this.metadata = new GRPC.Metadata();
                 this.metadata.add("SessionID", response.getSessionid());
@@ -122,14 +128,10 @@ export class GRPCClient {
                         new ReadyToWorkState().setReadytowork(true)
                     ),
                     this.metadata,
-                    (err, response) => {
-                        if (err) {
-                            console.error(err);
-                            return;
-                        }
+                    loggedMethod((response) => {
                         console.log(response);
                         instance.updateStatus(InstanceStatus.Ok);
-                    }
+                    })
                 );
                 const stream = this.connectedClient.ping(this.metadata);
                 stream.on("error", (err) => {
@@ -141,23 +143,66 @@ export class GRPCClient {
                 stream.on("end", () => {
                     console.log("stream end");
                 });
-                setInterval(() => stream.write(new PingPong()), 10000);
-            }
+                this.interval = setInterval(
+                    () => stream.write(new PingPong()),
+                    10000
+                );
+
+                new UserClientClient(
+                    this.endpoint,
+                    GRPC.credentials.createInsecure()
+                ).bind(
+                    new UserContextRequest()
+                        .setUsername(instance.config?.username ?? "DMXCDefault")
+                        .setPasswordhash(
+                            hashPasswordDMXC(
+                                instance.config?.password ?? "DMXC3"
+                            )
+                        ),
+                    this.metadata,
+                    loggedMethod((response) => {
+                        console.log(response);
+                        if (!this.metadata) {
+                            console.error("Metadata not set");
+                            return;
+                        }
+                        this.macroClient = new MacroClientClient(
+                            this.endpoint,
+                            GRPC.credentials.createInsecure()
+                        );
+                        this.macroClient.getMacros(
+                            new GetMultipleRequest(),
+                            this.metadata,
+                            loggedMethod((response) => {
+                                console.log("Macros received:", response);
+                                response.getMacrosList().forEach((macro) => {
+                                    console.log(macro.getName());
+                                });
+                            })
+                        );
+                        this.macroClient
+                            .receiveMacroChanges(
+                                new GetRequest(),
+                                this.metadata
+                            )
+                            .on("data", (data) => {
+                                console.log("Macro change:", data);
+                            });
+                    })
+                );
+            })
         );
     }
 
     public destroy(): void {
         this.connectedClient?.close();
+        clearInterval(this.interval);
         this.umbraClient.logoff(
             new UmbraLogoffRequest().setClient(this.clientProgramInfo),
-            (err, response) => {
-                if (err) {
-                    console.error(err);
-                    return;
-                }
+            loggedMethod((response) => {
                 console.log(response);
                 this.umbraClient.close();
-            }
+            })
         );
     }
 }

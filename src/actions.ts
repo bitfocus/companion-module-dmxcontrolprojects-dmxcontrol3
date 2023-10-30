@@ -1,12 +1,20 @@
 import { CompanionActionDefinition } from "@companion-module/base";
-import { ModuleInstance } from "./main";
+import { DMXCModuleInstance } from "./main";
 
 export enum ActionId {
     Default = "sample_action"
 }
 
-export function UpdateActions(self: ModuleInstance): void {
-    const actions: { [id in ActionId]: CompanionActionDefinition | undefined } =
+export class ActionFactory {
+    private actions: Map<ActionId, CompanionActionDefinition | undefined>;
+
+    constructor(private instance: DMXCModuleInstance) {
+        this.actions = new Map<ActionId, CompanionActionDefinition>();    
+        this.addDefaultActions();
+    }
+
+    private addDefaultActions(): void {
+        const actions: { [id in ActionId]: CompanionActionDefinition | undefined } =
         {
             [ActionId.Default]: {
                 name: "My First Action",
@@ -26,6 +34,12 @@ export function UpdateActions(self: ModuleInstance): void {
                 }
             }
         };
+        Object.values(ActionId).forEach((id) => {
+            this.actions.set(id, actions[id]);
+        });
+    }
 
-    self.setActionDefinitions(actions);
+    public updateActions(): void {
+        this.instance.setActionDefinitions(Object.fromEntries(this.actions));
+    }
 }

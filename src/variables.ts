@@ -1,6 +1,6 @@
-import { ModuleInstance } from "./main";
+import { DMXCModuleInstance } from "./main";
 
-export function UpdateVariables(self: ModuleInstance): void {
+export function UpdateVariables(self: DMXCModuleInstance): void {
     self.setVariableDefinitions([
         { variableId: "variable1", name: "My first variable" },
         { variableId: "variable2", name: "My second variable" },
