@@ -1,26 +1,26 @@
 {
-  "id": "dmxcontrolprojects-dmxcontrol",
-  "name": "dmxcontrolprojects-dmxcontrol",
-  "shortname": "DMXControl",
-  "description": "A short one line description of your module",
-  "version": "0.0.0",
-  "license": "MIT",
-  "repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
-  "bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
-  "maintainers": [
-    {
-      "name": "Samuel Hufen",
-      "email": "Your email"
-    }
-  ],
-  "runtime": {
-    "type": "node18",
-    "api": "nodejs-ipc",
-    "apiVersion": "0.0.0",
-    "entrypoint": "../dist/main.js"
-  },
-  "legacyIds": [],
-  "manufacturer": "DMXControl Projects e.V.",
-  "products": ["DMXControl 3"],
-  "keywords": []
+    "id": "dmxcontrolprojects-dmxcontrol",
+    "name": "dmxcontrolprojects-dmxcontrol",
+    "shortname": "DMXControl",
+    "description": "A short one line description of your module",
+    "version": "0.0.0",
+    "license": "MIT",
+    "repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
+    "bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
+    "maintainers": [
+        {
+            "name": "Samuel Hufen",
+            "email": "Your email"
+        }
+    ],
+    "runtime": {
+        "type": "node18",
+        "api": "nodejs-ipc",
+        "apiVersion": "0.0.0",
+        "entrypoint": "../dist/main.js"
+    },
+    "legacyIds": [],
+    "manufacturer": "DMXControl Projects e.V.",
+    "products": ["DMXControl 3"],
+    "keywords": []
 }

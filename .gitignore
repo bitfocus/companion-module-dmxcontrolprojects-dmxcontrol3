@@ -131,3 +131,6 @@ dist
 
 # Ignore generated files from protobufs
 src/generated
+
+# Ignore packaging output
+pkg
