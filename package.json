@@ -1,5 +1,5 @@
 {
-	"name": "your-module-name",
+	"name": "dmxcontrolprojects-dmxcontrol3",
 	"version": "0.1.0",
 	"main": "dist/main.js",
 	"scripts": {
@@ -7,15 +7,16 @@
 		"lint": "eslint --ext .ts .",
 		"generate:protocode": "grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --js_out=import_style=commonjs,binary:./src/generated --grpc_out=grpc_js:./src/generated -I ./proto $(find ./proto -name '*.proto')",
 		"generate:prototype": "protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=generate_package_definition:./src/generated -I ./proto $(find ./proto -name '*.proto')",
-		"generate:proto": "npm run generate:protocode && npm run generate:prototype",
+		"generate:proto": "yarn generate:protocode && yarn generate:prototype",
 		"build": "tsc",
-		"package": "npm run build && yarn companion-module-build",
+		"package": "yarn build && yarn companion-module-build",
+		"package:dev": "yarn build && yarn companion-module-build --dev",
 		"clean": "rm -rf dist && rm -rf src/generated && rm -rf pkg && rm pkg.tgz && mkdir src/generated"
 	},
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/bitfocus/companion-module-your-module-name.git"
+		"url": "git+https://github.com/bitfocus/companion-module-dmxcontrolprojects-dmxcontrol3.git"
 	},
 	"dependencies": {
 		"@companion-module/base": "~1.5.1",

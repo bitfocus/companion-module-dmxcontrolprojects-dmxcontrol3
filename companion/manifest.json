@@ -1,12 +1,12 @@
 {
-    "id": "dmxcontrolprojects-dmxcontrol",
-    "name": "dmxcontrolprojects-dmxcontrol",
+    "id": "dmxcontrolprojects-dmxcontrol3",
+    "name": "DMXControl Projects e.V. - DMXControl3",
     "shortname": "DMXControl 3",
-    "description": "A short one line description of your module",
-    "version": "0.0.0",
+    "description": "This module allows you to connect with DMXControl 3.3 and control macros.",
+    "version": "0.1.0",
     "license": "MIT",
-    "repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
-    "bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
+    "repository": "git+https://github.com/bitfocus/companion-module-dmxcontrolprojects-dmxcontrol3.git",
+    "bugs": "https://github.com/bitfocus/companion-module-dmxcontrolprojects-dmxcontrol3/issues",
     "maintainers": [
         {
             "name": "Samuel Hufen"
