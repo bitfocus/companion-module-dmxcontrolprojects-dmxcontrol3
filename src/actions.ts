@@ -39,6 +39,10 @@ export class ActionFactory {
         });
     }
 
+    public addMacroActions(macroid: string): void {
+        
+    }
+
     public updateActions(): void {
         this.instance.setActionDefinitions(Object.fromEntries(this.actions));
     }

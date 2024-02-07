@@ -29,8 +29,15 @@ export const configFields = (): SomeCompanionConfigField[] => {
             type: "static-text",
             id: "info",
             label: "Info",
-            width: 12,
+            width: 8,
             value: "The Target IP and Port are only used if the discovery process wasn't successful."
+        },
+        {
+            type: "checkbox",
+            id: "disable_discovery",
+            label: "Disable Autodiscovery",
+            default: false,
+            width: 4
         },
         {
             type: "textinput",

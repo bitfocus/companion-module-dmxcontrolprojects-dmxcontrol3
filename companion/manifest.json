@@ -1,6 +1,6 @@
 {
     "id": "dmxcontrolprojects-dmxcontrol3",
-    "name": "DMXControl Projects e.V. - DMXControl3",
+    "name": "DMXControl Projects e.V. - DMXControl 3",
     "shortname": "DMXControl 3",
     "description": "This module allows you to connect with DMXControl 3.3 and control macros.",
     "version": "0.1.0",
