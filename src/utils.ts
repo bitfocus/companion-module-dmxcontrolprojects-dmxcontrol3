@@ -92,6 +92,12 @@ export function startDiscovery(config: Config, instance: DMXCModuleInstance, suc
         }
     });
 
+    client.on("listening", () => {
+        console.log("listening")
+        client.addMembership("225.68.67.3");
+    })
+
     client.bind({address:"0.0.0.0", port: 17474, exclusive: false});
+    
     
 }

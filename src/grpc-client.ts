@@ -29,6 +29,7 @@ import {
 import { UserClientClient } from "./generated/Client/UserClient_grpc_pb";
 import { UserContextRequest } from "./generated/Common/Types/User/UserServiceTypes_pb";
 import { hashPasswordDMXC, loggedMethod } from "./utils";
+import { MacroChangedMessage } from "./generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
 
 export class GRPCClient {
     private umbraClient: ClientServiceClient;
@@ -49,22 +50,7 @@ export class GRPCClient {
             GRPC.credentials.createInsecure()
         );
 
-        const programInfo = new ProgramInfo();
-        programInfo.setProgrammname(deviceName);
-        programInfo.setProgramversion("1.0.0");
-        programInfo.setVendor("DMXControl Projects e.V.");
-        programInfo.setBuilddate(new Date().valueOf());
-
-        const clientInfo = new ClientInfo();
-        clientInfo.setHostname(OS.hostname());
-        clientInfo.setIpsList([]);
-        clientInfo.setType(EClientType.EXTERNALTOOL);
-        clientInfo.setClientname(deviceName);
-        clientInfo.setClientcapabilities(0);
-
-        this.clientProgramInfo = new ClientProgramInfo();
-        this.clientProgramInfo.setPrograminfo(programInfo);
-        this.clientProgramInfo.setClientinfo(clientInfo);
+        this.clientProgramInfo = GRPCClient.getClientProgramInfo(deviceName)
     }
 
     public static getClientProgramInfo(deviceName: string): ClientProgramInfo {
@@ -116,7 +102,6 @@ export class GRPCClient {
         this.umbraClient.login(
             new UmbraLoginRequest().setClient(this.clientProgramInfo),
             loggedMethod((response) => {
-                console.log(response);
                 this.metadata = new GRPC.Metadata();
                 this.metadata.add("SessionID", response.getSessionid());
                 this.connectedClient = new ConnectedClientServiceClient(
@@ -129,7 +114,6 @@ export class GRPCClient {
                     ),
                     this.metadata,
                     loggedMethod((response) => {
-                        console.log(response);
                         instance.updateStatus(InstanceStatus.Ok);
                     })
                 );
@@ -137,9 +121,9 @@ export class GRPCClient {
                 stream.on("error", (err) => {
                     console.error(err);
                 });
-                stream.on("data", (data: PingPong) => {
-                    console.log(data);
-                });
+                // stream.on("data", (data: PingPong) => {
+                //     console.log(data);
+                // });
                 stream.on("end", () => {
                     console.log("stream end");
                 });
@@ -161,7 +145,6 @@ export class GRPCClient {
                         ),
                     this.metadata,
                     loggedMethod((response) => {
-                        console.log(response);
                         if (!this.metadata) {
                             console.error("Metadata not set");
                             return;
@@ -185,7 +168,7 @@ export class GRPCClient {
                                 new GetRequest(),
                                 this.metadata
                             )
-                            .on("data", (data) => {
+                            .on("data", (data: MacroChangedMessage) => {
                                 console.log("Macro change:", data);
                             });
                     })
