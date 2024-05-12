@@ -10,6 +10,8 @@ import { UpdateFeedbacks } from "./feedbacks";
 import { UpdateVariables } from "./variables";
 import { GRPCClient } from "./grpc-client";
 import { startDiscovery } from "./utils";
+import { MacroRepository } from "./macro/macrorepository";
+import { PresetsManager } from "./presets";
 
 export class DMXCModuleInstance extends InstanceBase<Config> {
     public config?: Config;
@@ -18,12 +20,18 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 
     public actions?: ActionFactory;
 
+    public macrorepo?: MacroRepository;
+
+    public presets?: PresetsManager;
+
     async init(config: Config) {
         this.config = config;
 
         this.updateStatus(InstanceStatus.Connecting);
 
         this.actions = new ActionFactory(this);
+        this.macrorepo = new MacroRepository();
+        this.presets = new PresetsManager(this);
 
         this.updateActions(); // export actions
         this.updateFeedbacks(); // export feedbacks

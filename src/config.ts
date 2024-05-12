@@ -55,19 +55,22 @@ export const configFields = (): SomeCompanionConfigField[] => {
             min: 1,
             max: 65535,
             default: 17475
-        },{
+        },
+        {
             type: "static-text",
             id: "info",
             label: "Info",
             width: 12,
             value: "The username and password should not be changed unless instructed and only present for compatibility with future releases."
-        },{
+        },
+        {
             type: "textinput",
             id: "username",
             label: "Username",
             width: 6,
             default: "DMXCDefault"
-        },{
+        },
+        {
             type: "textinput",
             id: "password",
             label: "Password",

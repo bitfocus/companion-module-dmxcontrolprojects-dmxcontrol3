@@ -1,10 +1,10 @@
-import { createHash } from 'crypto';
-import { Config } from './config';
-import { DMXCModuleInstance } from './main';
+import { createHash } from "crypto";
+import { Config } from "./config";
+import { DMXCModuleInstance } from "./main";
 
 import dgram from "dgram";
 import { UmbraUdpBroadcast } from "./generated/Common/Types/UmbraServiceTypes_pb";
-import { GRPCClient } from './grpc-client';
+import { GRPCClient } from "./grpc-client";
 
 export function hashPasswordDMXC(password: string): string {
     let hash = createHash("sha256");
@@ -17,7 +17,7 @@ export function hashPasswordDMXC(password: string): string {
 }
 
 export function loggedMethod<t>(original: (r: t) => void) {
-    return (e: Error|null, r: t) => {
+    return (e: Error | null, r: t) => {
         if (e) {
             console.error(e);
             return;
@@ -26,15 +26,19 @@ export function loggedMethod<t>(original: (r: t) => void) {
     };
 }
 
-export function startDiscovery(config: Config, instance: DMXCModuleInstance, success: (client: GRPCClient) => void): void {
-    const client = dgram.createSocket({type: "udp4", reuseAddr: true});
+export function startDiscovery(
+    config: Config,
+    instance: DMXCModuleInstance,
+    success: (client: GRPCClient) => void
+): void {
+    const client = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
     let umbraClient;
 
     client.on("error", (err) => {
-        console.log("ass", err)
+        console.log("ass", err);
         if (err.name === "EADDRINUSE") {
-            console.log("ass")    
+            console.log("ass");
         }
         console.log(`UDP client error:\n${err.stack}`);
         client.close();
@@ -42,9 +46,7 @@ export function startDiscovery(config: Config, instance: DMXCModuleInstance, suc
 
     client.on("message", (msg, rinfo) => {
         const umbraUdpBroadcast = UmbraUdpBroadcast.deserializeBinary(msg);
-        const clientInfo = umbraUdpBroadcast
-            .getUmbraserver()
-            ?.getClientinfo();
+        const clientInfo = umbraUdpBroadcast.getUmbraserver()?.getClientinfo();
         const netid = umbraUdpBroadcast
             .getUmbraserver()
             ?.getClientinfo()
@@ -79,12 +81,10 @@ export function startDiscovery(config: Config, instance: DMXCModuleInstance, suc
                 (response) => {
                     response.getRequestsList().forEach((request) => {
                         if (request.hasTargetnetworkid()) {
-                            config.netid =
-                                request.getTargetnetworkid();
+                            config.netid = request.getTargetnetworkid();
                         }
                         if (request.hasTargetclientname()) {
-                            config.devicename =
-                                request.getTargetclientname();
+                            config.devicename = request.getTargetclientname();
                         }
                     });
                 }
@@ -92,12 +92,7 @@ export function startDiscovery(config: Config, instance: DMXCModuleInstance, suc
         }
     });
 
-    client.on("listening", () => {
-        console.log("listening")
+    client.bind({ address: "0.0.0.0", port: 17474, exclusive: false }, () => {
         client.addMembership("225.68.67.3");
-    })
-
-    client.bind({address:"0.0.0.0", port: 17474, exclusive: false});
-    
-    
+    });
 }

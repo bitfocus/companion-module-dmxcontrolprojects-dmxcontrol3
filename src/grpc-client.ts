@@ -29,7 +29,11 @@ import {
 import { UserClientClient } from "./generated/Client/UserClient_grpc_pb";
 import { UserContextRequest } from "./generated/Common/Types/User/UserServiceTypes_pb";
 import { hashPasswordDMXC, loggedMethod } from "./utils";
-import { MacroChangedMessage } from "./generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
+import {
+    MacroChangedMessage,
+    MacroSetButtonStateRequest,
+    MacroSetFaderStateRequest
+} from "./generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
 
 export class GRPCClient {
     private umbraClient: ClientServiceClient;
@@ -42,6 +46,8 @@ export class GRPCClient {
 
     private interval?: NodeJS.Timeout;
 
+    private requestid = 0;
+
     constructor(host: string, port: number, deviceName: string) {
         this.endpoint = `${host}:${port}`;
 
@@ -50,7 +56,11 @@ export class GRPCClient {
             GRPC.credentials.createInsecure()
         );
 
-        this.clientProgramInfo = GRPCClient.getClientProgramInfo(deviceName)
+        this.clientProgramInfo = GRPCClient.getClientProgramInfo(deviceName);
+    }
+
+    private getRequestId(): number {
+        return this.requestid++;
     }
 
     public static getClientProgramInfo(deviceName: string): ClientProgramInfo {
@@ -62,9 +72,18 @@ export class GRPCClient {
         programInfo.setVendor("DMXControl Projects e.V.");
         programInfo.setBuilddate(new Date().valueOf());
 
+        const ips = [];
+
+        for (const [_, interfaces] of Object.entries(OS.networkInterfaces())) {
+            if (!interfaces) continue;
+            for (const inter of interfaces) {
+                if (!inter.internal) ips.push(inter.address);
+            }
+        }
+
         const clientInfo = new ClientInfo();
         clientInfo.setHostname(OS.hostname());
-        clientInfo.setIpsList([]);
+        clientInfo.setIpsList(ips);
         clientInfo.setType(EClientType.EXTERNALTOOL);
         clientInfo.setClientname(deviceName);
         clientInfo.setClientcapabilities(0);
@@ -78,9 +97,7 @@ export class GRPCClient {
         host: string,
         port: number,
         devicename: string,
-        callback: (
-            response: InformClientExistsResponse
-        ) => void
+        callback: (response: InformClientExistsResponse) => void
     ) {
         const client = new DMXCNetServiceClient(
             `${host}:${port}`,
@@ -114,7 +131,8 @@ export class GRPCClient {
                     ),
                     this.metadata,
                     loggedMethod((response) => {
-                        instance.updateStatus(InstanceStatus.Ok);
+                        if (response.getOk())
+                            instance.updateStatus(InstanceStatus.Ok);
                     })
                 );
                 const stream = this.connectedClient.ping(this.metadata);
@@ -144,7 +162,7 @@ export class GRPCClient {
                             )
                         ),
                     this.metadata,
-                    loggedMethod((response) => {
+                    loggedMethod((_) => {
                         if (!this.metadata) {
                             console.error("Metadata not set");
                             return;
@@ -157,10 +175,12 @@ export class GRPCClient {
                             new GetMultipleRequest(),
                             this.metadata,
                             loggedMethod((response) => {
-                                console.log("Macros received:", response);
                                 response.getMacrosList().forEach((macro) => {
-                                    console.log(macro.getName());
+                                    instance.macrorepo?.addMacro(macro);
                                 });
+                                instance.presets?.createMacroButtonPresets(
+                                    response.getMacrosList()
+                                );
                             })
                         );
                         this.macroClient
@@ -169,12 +189,56 @@ export class GRPCClient {
                                 this.metadata
                             )
                             .on("data", (data: MacroChangedMessage) => {
-                                console.log("Macro change:", data);
+                                const macro = data.getMacrodata();
+                                if (macro) {
+                                    instance.macrorepo?.updateMacro(macro);
+                                    instance.checkFeedbacks(
+                                        "ButtonState",
+                                        "FaderState",
+                                        "Bitmap"
+                                    );
+                                }
                             });
                     })
                 );
             })
         );
+    }
+
+    public sendFaderState(request: MacroSetFaderStateRequest) {
+        if (!this.metadata) throw new Error("Metadata not set");
+        request.setRequestid(this.getRequestId().toString());
+        this.macroClient?.setMacroFaderState(
+            request,
+            this.metadata,
+            loggedMethod((response) => {
+                if (!response.getOk()) {
+                    console.error("Error setting fader state");
+                }
+            })
+        );
+    }
+
+    public sendButtonState(request: MacroSetButtonStateRequest) {
+        if (!this.metadata) throw new Error("Metadata not set");
+        request.setRequestid(this.getRequestId().toString());
+        this.macroClient?.setMacroButtonState(
+            request,
+            this.metadata,
+            loggedMethod((response) => {
+                if (!response.getOk()) {
+                    console.error("Error setting button state");
+                }
+            })
+        );
+    }
+
+    public getMacroClient(): MacroClientClient | undefined {
+        return this.macroClient;
+    }
+
+    public getMetadata(): GRPC.Metadata | undefined {
+        return this.metadata;
     }
 
     public destroy(): void {

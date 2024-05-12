@@ -36,15 +36,23 @@ message TrackDescriptor {
 	bool minimized = 9; 
 	bool locked = 10; 
 	bool on = 11; 
-	bool solo = 12; 
-
-	repeated string children = 15;
+	bool solo = 12;
 
 	string selectedFaderKey=21;
 	repeated ActionNodeDescriptor actions = 31;
 	repeated PossibleActionNode possibleActions = 32;
-	repeated SnipDescriptor snips = 33;
-	repeated ScenelistTimeslotDescriptor scenelistTimeslots = 34;
+	oneof children
+	{
+		string executor = 33;
+		SnipDescriptorList snips = 34;
+		ScenelistTimeslotDescriptorList scenelistTimeslots = 35;
+	}
+}
+message SnipDescriptorList{
+	repeated SnipDescriptor list = 1;
+}
+message ScenelistTimeslotDescriptorList{
+	repeated ScenelistTimeslotDescriptor list = 1;
 }
 
 message MarkerDescriptor {
@@ -83,7 +91,6 @@ message SnipDescriptor {
 }
 message ScenelistTimeslotDescriptor {
 	string id = 2;
-	string name = 3;
 	string scenelist = 4;
 	int64 tick = 5;
 	bool selected = 6;

@@ -112,6 +112,8 @@ message TrackAddChildrenRequest {
 
 	string trackId = 2;
 	repeated string childrenIds = 3;
+	string userContextId = 4;
+	sint64 ticks = 5;
 }
 
 message TrackChangedMessage {
@@ -129,7 +131,8 @@ message TrackEditRequest {
 	string requestId = 1;
 	string trackId = 2;
 	EEditType editType = 3;
-	repeated EditMessage editMessages = 4;
+	string userContextId = 4;
+	repeated EditMessage editMessages = 5;
 
 	message EditMessage {
 		string id = 1;
@@ -163,6 +166,7 @@ message GetMarkersResponse {
 }
 
 message MarkerCreationRequest {
+	string userContextId = 1;
 	string requestId = 2;
 	string id = 3;
 	string name = 4;
@@ -188,7 +192,8 @@ message MarkerEditRequest {
 	string requestId = 1;
 	string markerId = 2;
 	EEditType editType = 3;
-	string parameter=4;
+	string userContextId = 4;
+	string parameter=5;
 	oneof value {
 		bool newValueBool = 6;
 		sint32 newValueInt = 7;
