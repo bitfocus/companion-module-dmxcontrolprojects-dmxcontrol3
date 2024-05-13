@@ -5,7 +5,7 @@
 	"scripts": {
 		"format": "prettier -w .",
 		"lint": "eslint --ext .ts .",
-		"generate:protocode": "grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --js_out=import_style=commonjs,binary:./src/generated --grpc_out=grpc_js:./src/generated -I ./proto $(find ./proto -name '*.proto')",
+		"generate:protocode": "grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --js_out=import_style=commonjs,binary:./dist/generated --grpc_out=grpc_js:./dist/generated -I ./proto $(find ./proto -name '*.proto')",
 		"generate:prototype": "protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=generate_package_definition:./src/generated -I ./proto $(find ./proto -name '*.proto')",
 		"generate:proto": "yarn generate:protocode && yarn generate:prototype",
 		"build": "tsc",

@@ -4,6 +4,8 @@ import {
     MacroSetButtonStateRequest,
     MacroSetFaderStateRequest
 } from "./generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
+import { SetExecutorValuesRequest } from "./generated/Common/Types/Executor/ExecutorServiceCRUDTypes_pb";
+import { EChangeType, ENullableBool } from "./generated/Common/Types/CommonTypes_pb";
 
 export enum ActionId {
     PressButton = "press_button",
@@ -36,24 +38,62 @@ export class ActionFactory {
                         max: 100
                     },
                     {
-                        id: "macroid",
+                        id: "id",
                         type: "textinput",
-                        label: "Macro ID"
+                        label: "ID"
+                    },
+                    {
+                        id: "buttonType",
+                        type: "dropdown",
+                        label: "Select Buttontype",
+                        choices: [
+                            { id: "macro", label: "Macro" },
+                            { id: "executor", label: "Executor" }
+                        ],
+                        default: "macro"
                     }
                 ],
                 callback: async (event) => {
                     if (
-                        typeof event.options.macroid === "string" &&
+                        typeof event.options.id === "string" &&
                         typeof event.options.num === "number"
                     ) {
-                        const request = new MacroSetButtonStateRequest();
-                        request.setMacroid(event.options.macroid);
-                        request.setButtonnumber(event.options.num);
-                        request.setActive(true);
+                        let request;
+                        switch (event.options.buttonType) {
+                            case "macro":
+                                request = new MacroSetButtonStateRequest();
+                                request.setMacroid(event.options.id);
+                                request.setButtonnumber(event.options.num);
+                                request.setActive(true);
+                                break;
+                            case "executor":
+                                request = new SetExecutorValuesRequest();
+                                request.setExecutorid(event.options.id);
+                                switch (event.options.num) {
+                                    case 1:
+                                        request.setButton1(ENullableBool.TRUE);
+                                        break;
+                                    case 2:
+                                        request.setButton2(ENullableBool.TRUE);
+                                        break;
+                                    case 3:
+                                        request.setButton3(ENullableBool.TRUE);
+                                        break;
+                                    case 4:
+                                        request.setButton4(ENullableBool.TRUE);
+                                        break;
 
-                        this.instance.UmbraClient?.sendButtonState(request);
+                                    default:
+                                        break;
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                        if (request)
+                            this.instance.UmbraClient?.sendButtonState(request);
+                        return Promise.resolve();
                     }
-                    return Promise.resolve();
                 }
             },
             [ActionId.ReleaseButton]: {
@@ -68,22 +108,60 @@ export class ActionFactory {
                         max: 100
                     },
                     {
-                        id: "macroid",
+                        id: "id",
                         type: "textinput",
-                        label: "Macro ID"
+                        label: "ID"
+                    },
+                    {
+                        id: "buttonType",
+                        type: "dropdown",
+                        label: "Select Buttontype",
+                        choices: [
+                            { id: "macro", label: "Macro" },
+                            { id: "executor", label: "Executor" }
+                        ],
+                        default: "macro"
                     }
                 ],
                 callback: async (event) => {
                     if (
-                        typeof event.options.macroid === "string" &&
+                        typeof event.options.id === "string" &&
                         typeof event.options.num === "number"
                     ) {
-                        const request = new MacroSetButtonStateRequest();
-                        request.setMacroid(event.options.macroid);
-                        request.setButtonnumber(event.options.num);
-                        request.setActive(false);
+                        let request;
+                        switch (event.options.buttonType) {
+                            case "macro":
+                                request = new MacroSetButtonStateRequest();
+                                request.setMacroid(event.options.id);
+                                request.setButtonnumber(event.options.num);
+                                request.setActive(false);
+                                break;
+                            case "executor":
+                                request = new SetExecutorValuesRequest();
+                                request.setExecutorid(event.options.id);
+                                switch (event.options.num) {
+                                    case 1:
+                                        request.setButton1(ENullableBool.FALSE);
+                                        break;
+                                    case 2:
+                                        request.setButton2(ENullableBool.FALSE);
+                                        break;
+                                    case 3:
+                                        request.setButton3(ENullableBool.FALSE);
+                                        break;
+                                    case 4:
+                                        request.setButton4(ENullableBool.FALSE);
+                                        break;
 
-                        this.instance.UmbraClient?.sendButtonState(request);
+                                    default:
+                                        break;
+                                }
+                                break;
+                            default:
+                                break;
+                        }
+                        if (request)
+                            this.instance.UmbraClient?.sendButtonState(request);
                     }
                     return Promise.resolve();
                 }
@@ -108,24 +186,48 @@ export class ActionFactory {
                         max: 100
                     },
                     {
-                        id: "macroid",
+                        id: "id",
                         type: "textinput",
-                        label: "Macro ID"
+                        label: "ID"
+                    },
+                    {
+                        id: "faderType",
+                        type: "dropdown",
+                        label: "Select Fadertype",
+                        choices: [
+                            { id: "macro", label: "Macro" },
+                            { id: "executor", label: "Executor" }
+                        ],
+                        default: "macro"
                     }
                 ],
                 callback: async (event) => {
                     if (
-                        typeof event.options.macroid === "string" &&
+                        typeof event.options.id === "string" &&
                         typeof event.options.num === "number" &&
                         typeof event.options.step === "number"
                     ) {
-                        const request = new MacroSetFaderStateRequest();
+                        let request;
 
-                        request.setMacroid(event.options.macroid);
-                        request.setFadernumber(event.options.num);
-                        request.setIncrement(event.options.step / 100);
+                        switch (event.options.faderType) {
+                            case "macro":
+                                request = new MacroSetFaderStateRequest();
+                                request.setMacroid(event.options.id);
+                                request.setIncrement(event.options.step / 100);
+                                request.setFadernumber(event.options.num);
+                                break;
+                            case "executor":
+                                request = new SetExecutorValuesRequest();
+                                request.setExecutorid(event.options.id);
+                                request.setFaderincrement(
+                                    event.options.step / 100
+                                );
+                                request.setFaderset(true);
+                                break;
+                        }
 
-                        this.instance.UmbraClient?.sendFaderState(request);
+                        if (request)
+                            this.instance.UmbraClient?.sendFaderState(request);
                     }
                     return Promise.resolve();
                 }
@@ -150,24 +252,48 @@ export class ActionFactory {
                         max: 100
                     },
                     {
-                        id: "macroid",
+                        id: "id",
                         type: "textinput",
-                        label: "Macro ID"
+                        label: "ID"
+                    },
+                    {
+                        id: "faderType",
+                        type: "dropdown",
+                        label: "Select Fadertype",
+                        choices: [
+                            { id: "macro", label: "Macro" },
+                            { id: "executor", label: "Executor" }
+                        ],
+                        default: "macro"
                     }
                 ],
                 callback: async (event) => {
                     if (
-                        typeof event.options.macroid === "string" &&
+                        typeof event.options.id === "string" &&
                         typeof event.options.num === "number" &&
                         typeof event.options.step === "number"
                     ) {
-                        const request = new MacroSetFaderStateRequest();
+                        let request;
 
-                        request.setMacroid(event.options.macroid);
-                        request.setFadernumber(event.options.num);
-                        request.setIncrement(-event.options.step / 100);
+                        switch (event.options.faderType) {
+                            case "macro":
+                                request = new MacroSetFaderStateRequest();
+                                request.setMacroid(event.options.id);
+                                request.setIncrement(-event.options.step / 100);
+                                request.setFadernumber(event.options.num);
+                                break;
+                            case "executor":
+                                request = new SetExecutorValuesRequest();
+                                request.setExecutorid(event.options.id);
+                                request.setFaderincrement(
+                                    -event.options.step / 100
+                                );
+                                request.setFaderset(true);
+                                break;
+                        }
 
-                        this.instance.UmbraClient?.sendFaderState(request);
+                        if (request)
+                            this.instance.UmbraClient?.sendFaderState(request);
                     }
                     return Promise.resolve();
                 }

@@ -4,7 +4,7 @@ import * as OS from "os";
 import {
     ClientServiceClient,
     ConnectedClientServiceClient
-} from "./generated/Common/UmbraClientService_grpc_pb";
+} from "../generated/Common/UmbraClientService_grpc_pb";
 import {
     ClientInfo,
     ClientProgramInfo,
@@ -17,34 +17,40 @@ import {
     UmbraClientReadyToWorkNotification,
     UmbraLoginRequest,
     UmbraLogoffRequest
-} from "./generated/Common/Types/UmbraServiceTypes_pb";
-import { DMXCModuleInstance } from "./main";
+} from "../generated/Common/Types/UmbraServiceTypes_pb";
+import { DMXCModuleInstance } from "../main";
 import { InstanceStatus } from "@companion-module/base";
-import { DMXCNetServiceClient } from "./generated/Common/UmbraClientService_grpc_pb";
-import { MacroClientClient } from "./generated/Client/MacroClient_grpc_pb";
+import { DMXCNetServiceClient } from "../generated/Common/UmbraClientService_grpc_pb";
+import { MacroClientClient } from "../generated/Client/MacroClient_grpc_pb";
 import {
     GetMultipleRequest,
     GetRequest
-} from "./generated/Common/Types/CommonTypes_pb";
-import { UserClientClient } from "./generated/Client/UserClient_grpc_pb";
-import { UserContextRequest } from "./generated/Common/Types/User/UserServiceTypes_pb";
-import { hashPasswordDMXC, loggedMethod } from "./utils";
+} from "../generated/Common/Types/CommonTypes_pb";
+import { UserClientClient } from "../generated/Client/UserClient_grpc_pb";
+import { UserContextRequest } from "../generated/Common/Types/User/UserServiceTypes_pb";
+import { hashPasswordDMXC, loggedMethod } from "../utils";
 import {
     MacroChangedMessage,
     MacroSetButtonStateRequest,
     MacroSetFaderStateRequest
-} from "./generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
+} from "../generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
+import { MacroClient } from "./macroclient";
+import { SetExecutorValuesRequest } from "../generated/Common/Types/Executor/ExecutorServiceCRUDTypes_pb";
+import { ExecutorClient } from "./executorclient";
+
+type DMXCClient = MacroClient | ExecutorClient;
 
 export class GRPCClient {
     private umbraClient: ClientServiceClient;
     private clientProgramInfo: ClientProgramInfo;
     private connectedClient?: ConnectedClientServiceClient;
-    private macroClient?: MacroClientClient;
     private endpoint: string;
 
     private metadata?: GRPC.Metadata;
 
     private interval?: NodeJS.Timeout;
+
+    private clients: Map<string, DMXCClient>;
 
     private requestid = 0;
 
@@ -57,9 +63,11 @@ export class GRPCClient {
         );
 
         this.clientProgramInfo = GRPCClient.getClientProgramInfo(deviceName);
+
+        this.clients = new Map<string, DMXCClient>();
     }
 
-    private getRequestId(): number {
+    public getRequestId(): number {
         return this.requestid++;
     }
 
@@ -167,74 +175,58 @@ export class GRPCClient {
                             console.error("Metadata not set");
                             return;
                         }
-                        this.macroClient = new MacroClientClient(
-                            this.endpoint,
-                            GRPC.credentials.createInsecure()
-                        );
-                        this.macroClient.getMacros(
-                            new GetMultipleRequest(),
-                            this.metadata,
-                            loggedMethod((response) => {
-                                response.getMacrosList().forEach((macro) => {
-                                    instance.macrorepo?.addMacro(macro);
-                                });
-                                instance.presets?.createMacroButtonPresets(
-                                    response.getMacrosList()
-                                );
-                            })
-                        );
-                        this.macroClient
-                            .receiveMacroChanges(
-                                new GetRequest(),
-                                this.metadata
+                        this.clients.set(
+                            typeof MacroClient,
+                            new MacroClient(
+                                this.endpoint,
+                                this.metadata,
+                                instance
                             )
-                            .on("data", (data: MacroChangedMessage) => {
-                                const macro = data.getMacrodata();
-                                if (macro) {
-                                    instance.macrorepo?.updateMacro(macro);
-                                    instance.checkFeedbacks(
-                                        "ButtonState",
-                                        "FaderState",
-                                        "Bitmap"
-                                    );
-                                }
-                            });
+                        );
+                        this.clients.set(
+                            typeof ExecutorClient,
+                            new ExecutorClient(
+                                this.endpoint,
+                                this.metadata,
+                                instance
+                            )
+                        );
                     })
                 );
             })
         );
     }
 
-    public sendFaderState(request: MacroSetFaderStateRequest) {
-        if (!this.metadata) throw new Error("Metadata not set");
+    public sendFaderState(
+        request: MacroSetFaderStateRequest | SetExecutorValuesRequest
+    ) {
         request.setRequestid(this.getRequestId().toString());
-        this.macroClient?.setMacroFaderState(
-            request,
-            this.metadata,
-            loggedMethod((response) => {
-                if (!response.getOk()) {
-                    console.error("Error setting fader state");
-                }
-            })
-        );
+        if (request instanceof MacroSetFaderStateRequest) {
+            const client = this.clients.get(typeof MacroClient) as MacroClient;
+            client.sendFaderState(request);
+        }
+        if (request instanceof SetExecutorValuesRequest) {
+            const client = this.clients.get(
+                typeof ExecutorClient
+            ) as ExecutorClient;
+            client.sendExecutorState(request);
+        }
     }
 
-    public sendButtonState(request: MacroSetButtonStateRequest) {
-        if (!this.metadata) throw new Error("Metadata not set");
+    public sendButtonState(
+        request: MacroSetButtonStateRequest | SetExecutorValuesRequest
+    ) {
         request.setRequestid(this.getRequestId().toString());
-        this.macroClient?.setMacroButtonState(
-            request,
-            this.metadata,
-            loggedMethod((response) => {
-                if (!response.getOk()) {
-                    console.error("Error setting button state");
-                }
-            })
-        );
-    }
-
-    public getMacroClient(): MacroClientClient | undefined {
-        return this.macroClient;
+        if (request instanceof MacroSetButtonStateRequest) {
+            const client = this.clients.get(typeof MacroClient) as MacroClient;
+            client.sendButtonState(request);
+        }
+        if (request instanceof SetExecutorValuesRequest) {
+            const client = this.clients.get(
+                typeof ExecutorClient
+            ) as ExecutorClient;
+            client.sendExecutorState(request);
+        }
     }
 
     public getMetadata(): GRPC.Metadata | undefined {

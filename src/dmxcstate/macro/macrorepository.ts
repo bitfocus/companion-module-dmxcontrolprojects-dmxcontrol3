@@ -1,9 +1,8 @@
-import { MacroDescriptor } from "../generated/Common/Types/Macro/MacroServiceTypes_pb";
+import { MacroDescriptor } from "../../generated/Common/Types/Macro/MacroServiceTypes_pb";
 import { IMacro } from "./imacro";
+import { RepositoryBase } from "../repositorybase";
 
-export class MacroRepository {
-    private macros: Map<string, IMacro> = new Map<string, IMacro>();
-
+export class MacroRepository extends RepositoryBase<IMacro> {
     public addMacro(macro: MacroDescriptor) {
         const macroInstance: IMacro = {
             ID: macro.getId(),
@@ -24,31 +23,11 @@ export class MacroRepository {
             }),
             image: macro.getBitmap()
         };
-        this.macros.set(macroInstance.ID, macroInstance);
-    }
-
-    public getMacro(id: string): IMacro | undefined {
-        return this.macros.get(id);
-    }
-
-    public getMacros(): IMacro[] {
-        return Array.from(this.macros.values());
-    }
-
-    public getMacroIds(): string[] {
-        return Array.from(this.macros.keys());
-    }
-
-    public removeMacro(id: string) {
-        this.macros.delete(id);
-    }
-
-    public clear() {
-        this.macros.clear();
+        this.data.set(macroInstance.ID, macroInstance);
     }
 
     public updateMacro(macro: MacroDescriptor) {
-        const macroInstance = this.macros.get(macro.getId());
+        const macroInstance = this.data.get(macro.getId());
 
         if (macroInstance) {
             macroInstance.name = macro.getName();

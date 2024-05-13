@@ -41,8 +41,12 @@ message SetExecutorValuesRequest {
 	.LumosProtobuf.ENullableBool button3 = 12;
 	.LumosProtobuf.ENullableBool button4 = 13;
 
-	double fader = 14;
-	bool faderSet = 15;
+	oneof fader
+	{
+		double faderIncrement = 14;
+		double faderAbsolut = 15;
+	}
+	bool faderSet = 16;
 	
 	string key = 30;
 }

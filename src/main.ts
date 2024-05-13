@@ -8,10 +8,13 @@ import { Config, configFields } from "./config";
 import { ActionFactory } from "./actions";
 import { UpdateFeedbacks } from "./feedbacks";
 import { UpdateVariables } from "./variables";
-import { GRPCClient } from "./grpc-client";
+import { GRPCClient } from "./grpc/grpcclient";
 import { startDiscovery } from "./utils";
-import { MacroRepository } from "./macro/macrorepository";
+import { MacroRepository } from "./dmxcstate/macro/macrorepository";
 import { PresetsManager } from "./presets";
+import { ExecutorRepository } from "./dmxcstate/executor/executorrepository";
+
+type DMXCRepository = MacroRepository | ExecutorRepository;
 
 export class DMXCModuleInstance extends InstanceBase<Config> {
     public config?: Config;
@@ -20,7 +23,7 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 
     public actions?: ActionFactory;
 
-    public macrorepo?: MacroRepository;
+    public repositories?: Map<string, DMXCRepository>;
 
     public presets?: PresetsManager;
 
@@ -30,7 +33,9 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
         this.updateStatus(InstanceStatus.Connecting);
 
         this.actions = new ActionFactory(this);
-        this.macrorepo = new MacroRepository();
+        this.repositories = new Map<string, DMXCRepository>();
+        this.repositories.set("MacroRepository", new MacroRepository());
+        this.repositories.set("ExecutorRepository", new ExecutorRepository());
         this.presets = new PresetsManager(this);
 
         this.updateActions(); // export actions

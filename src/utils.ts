@@ -4,7 +4,7 @@ import { DMXCModuleInstance } from "./main";
 
 import dgram from "dgram";
 import { UmbraUdpBroadcast } from "./generated/Common/Types/UmbraServiceTypes_pb";
-import { GRPCClient } from "./grpc-client";
+import { GRPCClient } from "./grpc/grpcclient";
 
 export function hashPasswordDMXC(password: string): string {
     let hash = createHash("sha256");
