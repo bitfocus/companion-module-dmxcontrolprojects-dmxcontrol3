@@ -6,7 +6,7 @@
 		"format": "prettier -w .",
 		"lint": "eslint --ext .ts .",
 		"generate:protocode": "grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --js_out=import_style=commonjs,binary:./dist/generated --grpc_out=grpc_js:./dist/generated -I ./proto $(find ./proto -name '*.proto')",
-		"generate:prototype": "protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=generate_package_definition:./src/generated -I ./proto $(find ./proto -name '*.proto')",
+		"generate:prototype": "grpc_tools_node_protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --ts_out=generate_package_definition:./src/generated -I ./proto $(find ./proto -name '*.proto')",
 		"generate:proto": "yarn generate:protocode && yarn generate:prototype",
 		"build": "node tools/cleanfolder && node tools/genfolder.js && yarn generate:proto && yarn build:main",
 		"build:main": "tsc -p tsconfig.build.json",
@@ -20,12 +20,10 @@
 	},
 	"dependencies": {
 		"@companion-module/base": "~1.9.0",
-		"@grpc/grpc-js": "^1.9.15",
-		"google-protobuf": "^3.21.2"
+		"@grpc/grpc-js": "^1.9.15"
 	},
 	"devDependencies": {
 		"@companion-module/tools": "^1.4.1",
-		"@types/google-protobuf": "^3.15.9",
 		"@typescript-eslint/eslint-plugin": "^6.9.0",
 		"@typescript-eslint/parser": "^6.9.0",
 		"eslint": "^8.52.0",
@@ -33,7 +31,6 @@
 		"grpc-tools": "^1.12.4",
 		"grpc_tools_node_protoc_ts": "^5.3.3",
 		"prettier": "^3.2.5",
-		"protoc": "^1.1.3",
 		"typescript": "^5.2.2"
 	},
 	"packageManager": "yarn@4.5.1"
