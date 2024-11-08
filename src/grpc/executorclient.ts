@@ -67,9 +67,9 @@ export class ExecutorClient {
             this.metadata,
             loggedMethod((response) => {
                 if (!response.getOk()) {
-                    console.error(
-                        "Error setting ExecutorState",
-                        request.getExecutorid()
+                    this.instance.log(
+                        "error",
+                        `Error setting ExecutorState: ${request.getExecutorid()}`
                     );
                 }
             })

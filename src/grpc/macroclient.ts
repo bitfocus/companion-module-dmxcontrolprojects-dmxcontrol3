@@ -61,17 +61,16 @@ export class MacroClient {
     }
 
     sendFaderState(request: MacroSetFaderStateRequest) {
-        console.debug(request);
+        this.instance.log("debug", request.toString());
         this.mclient.setMacroFaderState(
             request,
             this.metadata,
             loggedMethod((response) => {
-                console.log(response);
+                this.instance.log("debug", response.toString());
                 if (!response.getOk()) {
-                    console.error(
-                        "Error setting FaderState",
-                        request.getMacroid(),
-                        request.getFadernumber()
+                    this.instance.log(
+                        "error",
+                        `Error setting FaderState: ${request.getMacroid()}-${request.getFadernumber()}`
                     );
                 }
             })
@@ -84,10 +83,9 @@ export class MacroClient {
             this.metadata,
             loggedMethod((response) => {
                 if (!response.getOk()) {
-                    console.error(
-                        "Error setting ButtonState",
-                        request.getMacroid(),
-                        request.getButtonnumber()
+                    this.instance.log(
+                        "error",
+                        `Error setting ButtonState: ${request.getMacroid()}-${request.getButtonnumber()}`
                     );
                 }
             })

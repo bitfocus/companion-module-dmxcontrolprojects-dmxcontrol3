@@ -7,7 +7,7 @@ export class PresetsManager {
     private macropresets: CompanionPresetDefinitions;
     private executorpresets: CompanionPresetDefinitions;
 
-    constructor(private self: DMXCModuleInstance) {
+    constructor(private module: DMXCModuleInstance) {
         this.macropresets = {};
         this.executorpresets = {};
     }
@@ -353,8 +353,8 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.self.setPresetDefinitions({});
-            this.self.setPresetDefinitions({
+            this.module.setPresetDefinitions({});
+            this.module.setPresetDefinitions({
                 ...this.executorpresets,
                 ...this.macropresets
             });
@@ -554,8 +554,8 @@ export class PresetsManager {
                 };
             }
         }
-        this.self.setPresetDefinitions({});
-        this.self.setPresetDefinitions({
+        this.module.setPresetDefinitions({});
+        this.module.setPresetDefinitions({
             ...this.executorpresets,
             ...this.macropresets
         });

@@ -141,13 +141,13 @@ export class GRPCClient {
                 );
                 const stream = this.connectedClient.ping(this.metadata);
                 stream.on("error", (err) => {
-                    console.error(err);
+                    instance.log("error", err.message);
                 });
                 stream.on("data", (data: PingPong) => {
-                    console.debug(data.toObject());
+                    instance.log("debug", data.toString());
                 });
                 stream.on("end", () => {
-                    console.debug("stream end");
+                    instance.log("debug", "stream end");
                 });
                 this.interval = setInterval(
                     () => stream.write(new PingPong()),
