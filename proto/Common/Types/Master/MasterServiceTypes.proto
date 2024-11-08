@@ -44,7 +44,11 @@ message MasterFaderDescriptor {
 
 	string masterId = 2;
 	string name = 3;
-	double faderValue = 4;	
+	oneof faderValue
+	{
+		double increment = 4;
+		double absolut = 5;
+	}
 }
 message MasterButtonDescriptor {
 

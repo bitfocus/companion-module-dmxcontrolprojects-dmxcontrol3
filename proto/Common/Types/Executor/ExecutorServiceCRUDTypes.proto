@@ -43,10 +43,9 @@ message SetExecutorValuesRequest {
 
 	oneof fader
 	{
-		double faderIncrement = 14;
-		double faderAbsolut = 15;
+		double faderIncrement = 16;
+		double faderAbsolut = 14;
 	}
-	bool faderSet = 16;
 	
 	string key = 30;
 }

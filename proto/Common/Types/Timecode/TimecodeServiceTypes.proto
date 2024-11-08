@@ -19,6 +19,7 @@ message TimecodeDescriptor {
 	repeated string markers = 11;
 
 	uint32 soundOutputDevice = 21;
+	uint32 latency = 23;
 	repeated string possibleSoundOutputDevices = 22;
 }
 
