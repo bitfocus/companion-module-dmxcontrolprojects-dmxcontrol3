@@ -20,7 +20,7 @@
 	},
 	"dependencies": {
 		"@companion-module/base": "~1.5.1",
-		"@grpc/grpc-js": "^1.9.8",
+		"@grpc/grpc-js": "^1.9.15",
 		"google-protobuf": "^3.21.2"
 	},
 	"devDependencies": {
