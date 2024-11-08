@@ -21,16 +21,10 @@ import {
 import { DMXCModuleInstance } from "../main";
 import { InstanceStatus } from "@companion-module/base";
 import { DMXCNetServiceClient } from "../generated/Common/UmbraClientService_grpc_pb";
-import { MacroClientClient } from "../generated/Client/MacroClient_grpc_pb";
-import {
-    GetMultipleRequest,
-    GetRequest
-} from "../generated/Common/Types/CommonTypes_pb";
 import { UserClientClient } from "../generated/Client/UserClient_grpc_pb";
 import { UserContextRequest } from "../generated/Common/Types/User/UserServiceTypes_pb";
 import { hashPasswordDMXC, loggedMethod } from "../utils";
 import {
-    MacroChangedMessage,
     MacroSetButtonStateRequest,
     MacroSetFaderStateRequest
 } from "../generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
@@ -39,6 +33,8 @@ import { SetExecutorValuesRequest } from "../generated/Common/Types/Executor/Exe
 import { ExecutorClient } from "./executorclient";
 
 type DMXCClient = MacroClient | ExecutorClient;
+
+type DMXCClientKey = "Macro" | "Executor";
 
 export class GRPCClient {
     private umbraClient: ClientServiceClient;
@@ -50,7 +46,7 @@ export class GRPCClient {
 
     private interval?: NodeJS.Timeout;
 
-    private clients: Map<string, DMXCClient>;
+    private clients: Map<DMXCClientKey, DMXCClient>;
 
     private requestid = 0;
 
@@ -64,7 +60,7 @@ export class GRPCClient {
 
         this.clientProgramInfo = GRPCClient.getClientProgramInfo(deviceName);
 
-        this.clients = new Map<string, DMXCClient>();
+        this.clients = new Map<DMXCClientKey, DMXCClient>();
     }
 
     public getRequestId(): number {
@@ -147,11 +143,11 @@ export class GRPCClient {
                 stream.on("error", (err) => {
                     console.error(err);
                 });
-                // stream.on("data", (data: PingPong) => {
-                //     console.log(data);
-                // });
+                stream.on("data", (data: PingPong) => {
+                    console.debug(data.toObject());
+                });
                 stream.on("end", () => {
-                    console.log("stream end");
+                    console.debug("stream end");
                 });
                 this.interval = setInterval(
                     () => stream.write(new PingPong()),
@@ -176,7 +172,7 @@ export class GRPCClient {
                             return;
                         }
                         this.clients.set(
-                            typeof MacroClient,
+                            "Macro",
                             new MacroClient(
                                 this.endpoint,
                                 this.metadata,
@@ -184,7 +180,7 @@ export class GRPCClient {
                             )
                         );
                         this.clients.set(
-                            typeof ExecutorClient,
+                            "Executor",
                             new ExecutorClient(
                                 this.endpoint,
                                 this.metadata,
@@ -201,15 +197,13 @@ export class GRPCClient {
         request: MacroSetFaderStateRequest | SetExecutorValuesRequest
     ) {
         request.setRequestid(this.getRequestId().toString());
-        if (request instanceof MacroSetFaderStateRequest) {
-            const client = this.clients.get(typeof MacroClient) as MacroClient;
-            client.sendFaderState(request);
+        if ("macroid" in request.toObject()) {
+            const client = this.clients.get("Macro") as MacroClient;
+            client.sendFaderState(request as MacroSetFaderStateRequest);
         }
-        if (request instanceof SetExecutorValuesRequest) {
-            const client = this.clients.get(
-                typeof ExecutorClient
-            ) as ExecutorClient;
-            client.sendExecutorState(request);
+        if ("executorid" in request.toObject()) {
+            const client = this.clients.get("Executor") as ExecutorClient;
+            client.sendExecutorState(request as SetExecutorValuesRequest);
         }
     }
 
@@ -217,15 +211,13 @@ export class GRPCClient {
         request: MacroSetButtonStateRequest | SetExecutorValuesRequest
     ) {
         request.setRequestid(this.getRequestId().toString());
-        if (request instanceof MacroSetButtonStateRequest) {
-            const client = this.clients.get(typeof MacroClient) as MacroClient;
-            client.sendButtonState(request);
+        if ("macroid" in request.toObject()) {
+            const client = this.clients.get("Macro") as MacroClient;
+            client.sendButtonState(request as MacroSetButtonStateRequest);
         }
-        if (request instanceof SetExecutorValuesRequest) {
-            const client = this.clients.get(
-                typeof ExecutorClient
-            ) as ExecutorClient;
-            client.sendExecutorState(request);
+        if ("executorid" in request.toObject()) {
+            const client = this.clients.get("Executor") as ExecutorClient;
+            client.sendExecutorState(request as SetExecutorValuesRequest);
         }
     }
 

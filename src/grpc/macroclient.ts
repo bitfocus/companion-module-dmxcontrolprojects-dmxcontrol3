@@ -34,11 +34,15 @@ export class MacroClient {
         this.mclient.getMacros(
             new GetMultipleRequest(),
             this.metadata,
-            loggedMethod((response) => this.getMacroHandler(response))
+            loggedMethod((response) => {
+                this.getMacroHandler(response);
+            })
         );
         this.mclient
             .receiveMacroChanges(new GetRequest(), this.metadata)
-            .on("data", (response) => this.macroChangeHandler(response));
+            .on("data", (response: MacroChangedMessage) => {
+                this.macroChangeHandler(response);
+            });
     }
 
     getMacroHandler(response: GetMacrosResponse): void {
@@ -57,10 +61,12 @@ export class MacroClient {
     }
 
     sendFaderState(request: MacroSetFaderStateRequest) {
+        console.debug(request);
         this.mclient.setMacroFaderState(
             request,
             this.metadata,
             loggedMethod((response) => {
+                console.log(response);
                 if (!response.getOk()) {
                     console.error(
                         "Error setting FaderState",

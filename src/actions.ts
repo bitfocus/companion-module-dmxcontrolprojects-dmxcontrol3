@@ -5,13 +5,14 @@ import {
     MacroSetFaderStateRequest
 } from "./generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
 import { SetExecutorValuesRequest } from "./generated/Common/Types/Executor/ExecutorServiceCRUDTypes_pb";
-import { EChangeType, ENullableBool } from "./generated/Common/Types/CommonTypes_pb";
+import { ENullableBool } from "./generated/Common/Types/CommonTypes_pb";
 
 export enum ActionId {
     PressButton = "press_button",
     ReleaseButton = "release_button",
     IncrementFader = "increment_fader",
-    DecrementFader = "decrement_fader"
+    DecrementFader = "decrement_fader",
+    SetFaderAbsolute = "absolute_fader"
 }
 
 export class ActionFactory {
@@ -287,6 +288,73 @@ export class ActionFactory {
                                 request.setExecutorid(event.options.id);
                                 request.setFaderincrement(
                                     -event.options.step / 100
+                                );
+                                request.setFaderset(true);
+                                break;
+                        }
+
+                        if (request)
+                            this.instance.UmbraClient?.sendFaderState(request);
+                    }
+                    return Promise.resolve();
+                }
+            },
+            [ActionId.SetFaderAbsolute]: {
+                name: "Set Fader",
+                options: [
+                    {
+                        id: "value",
+                        type: "number",
+                        label: "Fadervalue in %",
+                        default: 50,
+                        min: 0,
+                        max: 100
+                    },
+                    {
+                        id: "num",
+                        type: "number",
+                        label: "FaderNumber",
+                        default: 1,
+                        min: 1,
+                        max: 100
+                    },
+                    {
+                        id: "id",
+                        type: "textinput",
+                        label: "ID"
+                    },
+                    {
+                        id: "faderType",
+                        type: "dropdown",
+                        label: "Select Fadertype",
+                        choices: [
+                            { id: "macro", label: "Macro" },
+                            { id: "executor", label: "Executor" }
+                        ],
+                        default: "macro"
+                    }
+                ],
+                callback: async (event) => {
+                    if (
+                        typeof event.options.id === "string" &&
+                        typeof event.options.num === "number" &&
+                        typeof event.options.step === "number" &&
+                        typeof event.options.value === "number"
+                    ) {
+                        let request;
+
+                        switch (event.options.faderType) {
+                            case "macro":
+                                request = new MacroSetFaderStateRequest();
+                                request.setMacroid(event.options.id);
+                                request.setAbsolut(event.options.value / 100);
+                                request.setFadernumber(event.options.num);
+                                break;
+                            case "executor":
+                                request = new SetExecutorValuesRequest();
+                                request.setExecutorid(event.options.id);
+                                request.setFaderabsolut(
+                                    event.options.value / 100
                                 );
                                 request.setFaderset(true);
                                 break;

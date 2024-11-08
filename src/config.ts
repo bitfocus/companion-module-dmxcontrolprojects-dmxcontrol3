@@ -7,6 +7,7 @@ export interface Config {
     devicename: string;
     username: string;
     password: string;
+    disablediscovery: boolean;
 }
 
 export const configFields = (): SomeCompanionConfigField[] => {
@@ -30,11 +31,11 @@ export const configFields = (): SomeCompanionConfigField[] => {
             id: "info",
             label: "Info",
             width: 8,
-            value: "The Target IP and Port are only used if the discovery process wasn't successful."
+            value: "The Target IP and Port are only used if the discovery process is disabled."
         },
         {
             type: "checkbox",
-            id: "disable_discovery",
+            id: "disablediscovery",
             label: "Disable Autodiscovery",
             default: false,
             width: 4

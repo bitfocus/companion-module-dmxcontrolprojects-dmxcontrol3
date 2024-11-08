@@ -4,21 +4,31 @@ import { MacroDescriptor } from "./generated/Common/Types/Macro/MacroServiceType
 import { ExecutorDescriptor } from "./generated/Common/Types/Executor/ExecutorServiceTypes_pb";
 
 export class PresetsManager {
-    private presets: CompanionPresetDefinitions;
+    private macropresets: CompanionPresetDefinitions;
+    private executorpresets: CompanionPresetDefinitions;
 
     constructor(private self: DMXCModuleInstance) {
-        this.presets = {};
+        this.macropresets = {};
+        this.executorpresets = {};
     }
 
     createExecutorPresets(executorlist: ExecutorDescriptor[]) {
+        this.executorpresets = {};
         for (const executor of executorlist) {
             const name = executor.getName();
-            this.presets[`${executor.getId()}_button_1`] = {
+            let button1name = executor.getButton1displayname();
+            if (!button1name) {
+                button1name = "Button 1";
+            }
+            this.executorpresets[`${executor.getId()}_button_1`] = {
                 type: "button",
                 category: name,
                 name: executor.getButton1displayname(),
                 style: {
-                    text: executor.getButton1displayname(),
+                    text:
+                        executor.getButton1displayname().length > 0
+                            ? executor.getButton1displayname()
+                            : "Button 1",
                     size: "auto",
                     color: combineRgb(255, 255, 255),
                     bgcolor: combineRgb(0, 0, 0)
@@ -61,12 +71,15 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.presets[`${executor.getId()}_button_2`] = {
+            this.executorpresets[`${executor.getId()}_button_2`] = {
                 type: "button",
                 category: name,
                 name: executor.getButton2displayname(),
                 style: {
-                    text: executor.getButton2displayname(),
+                    text:
+                        executor.getButton2displayname().length > 0
+                            ? executor.getButton2displayname()
+                            : "Button 2",
                     size: "auto",
                     color: combineRgb(255, 255, 255),
                     bgcolor: combineRgb(0, 0, 0)
@@ -109,12 +122,15 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.presets[`${executor.getId()}_button_3`] = {
+            this.executorpresets[`${executor.getId()}_button_3`] = {
                 type: "button",
                 category: name,
                 name: executor.getButton3displayname(),
                 style: {
-                    text: executor.getButton3displayname(),
+                    text:
+                        executor.getButton3displayname().length > 0
+                            ? executor.getButton3displayname()
+                            : "Button 3",
                     size: "auto",
                     color: combineRgb(255, 255, 255),
                     bgcolor: combineRgb(0, 0, 0)
@@ -157,12 +173,15 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.presets[`${executor.getId()}_button_4`] = {
+            this.executorpresets[`${executor.getId()}_button_4`] = {
                 type: "button",
                 category: name,
                 name: executor.getButton4displayname(),
                 style: {
-                    text: executor.getButton4displayname(),
+                    text:
+                        executor.getButton4displayname().length > 0
+                            ? executor.getButton4displayname()
+                            : "Button 4",
                     size: "auto",
                     color: combineRgb(255, 255, 255),
                     bgcolor: combineRgb(0, 0, 0)
@@ -205,12 +224,15 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.presets[`${executor.getId()}_fader`] = {
+            this.executorpresets[`${executor.getId()}_fader`] = {
                 type: "button",
                 category: name,
                 name: executor.getFaderdisplayname(),
                 style: {
-                    text: executor.getFaderdisplayname(),
+                    text:
+                        executor.getFaderdisplayname().length > 0
+                            ? executor.getFaderdisplayname()
+                            : "Fader",
                     size: "auto",
                     color: combineRgb(255, 255, 255),
                     bgcolor: combineRgb(0, 0, 0)
@@ -257,7 +279,7 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.presets[`${executor.getId()}_fader_inc`] = {
+            this.executorpresets[`${executor.getId()}_fader_inc`] = {
                 type: "button",
                 category: name,
                 name: executor.getFaderdisplayname(),
@@ -294,7 +316,7 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.presets[`${executor.getId()}_fader_dec`] = {
+            this.executorpresets[`${executor.getId()}_fader_dec`] = {
                 type: "button",
                 category: name,
                 name: executor.getFaderdisplayname(),
@@ -331,14 +353,19 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.self.setPresetDefinitions(this.presets);
+            this.self.setPresetDefinitions({});
+            this.self.setPresetDefinitions({
+                ...this.executorpresets,
+                ...this.macropresets
+            });
         }
     }
 
     createMacroPresets(macrolist: MacroDescriptor[]) {
+        this.macropresets = {};
         for (const macro of macrolist) {
             const macroName = macro.getName();
-            this.presets[`${macro.getId()}_image`] = {
+            this.macropresets[`${macro.getId()}_image`] = {
                 type: "button",
                 category: macroName,
                 name: "Image",
@@ -359,58 +386,61 @@ export class PresetsManager {
                 ]
             };
             for (const button of macro.getButtonsList()) {
-                this.presets[`${macro.getId()}_button_${button.getNumber()}`] =
-                    {
-                        type: "button",
-                        category: macroName,
-                        name: button.getLabel(),
-                        style: {
-                            text: button.getLabel(),
-                            size: "auto",
-                            color: combineRgb(255, 255, 255),
-                            bgcolor: combineRgb(0, 0, 0)
-                        },
-                        steps: [
-                            {
-                                down: [
-                                    {
-                                        actionId: "press_button",
-                                        options: {
-                                            id: macro.getId(),
-                                            num: button.getNumber(),
-                                            buttonType: "macro"
-                                        }
+                this.macropresets[
+                    `${macro.getId()}_button_${button.getNumber()}`
+                ] = {
+                    type: "button",
+                    category: macroName,
+                    name: button.getLabel(),
+                    style: {
+                        text: button.getLabel(),
+                        size: "auto",
+                        color: combineRgb(255, 255, 255),
+                        bgcolor: combineRgb(0, 0, 0)
+                    },
+                    steps: [
+                        {
+                            down: [
+                                {
+                                    actionId: "press_button",
+                                    options: {
+                                        id: macro.getId(),
+                                        num: button.getNumber(),
+                                        buttonType: "macro"
                                     }
-                                ],
-                                up: [
-                                    {
-                                        actionId: "release_button",
-                                        options: {
-                                            id: macro.getId(),
-                                            num: button.getNumber(),
-                                            buttonType: "macro"
-                                        }
-                                    }
-                                ]
-                            }
-                        ],
-                        feedbacks: [
-                            {
-                                feedbackId: "ButtonState",
-                                options: {
-                                    id: macro.getId(),
-                                    num: button.getNumber(),
-                                    buttonType: "macro"
-                                },
-                                style: {
-                                    bgcolor: combineRgb(255, 0, 0)
                                 }
+                            ],
+                            up: [
+                                {
+                                    actionId: "release_button",
+                                    options: {
+                                        id: macro.getId(),
+                                        num: button.getNumber(),
+                                        buttonType: "macro"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    feedbacks: [
+                        {
+                            feedbackId: "ButtonState",
+                            options: {
+                                id: macro.getId(),
+                                num: button.getNumber(),
+                                buttonType: "macro"
+                            },
+                            style: {
+                                bgcolor: combineRgb(255, 0, 0)
                             }
-                        ]
-                    };
+                        }
+                    ]
+                };
             }
             for (const fader of macro.getFadersList()) {
-                this.presets[`${macro.getId()}_fader_${fader.getNumber()}`] = {
+                this.macropresets[
+                    `${macro.getId()}_fader_${fader.getNumber()}`
+                ] = {
                     type: "button",
                     category: macroName,
                     name: fader.getLabel(),
@@ -462,7 +492,7 @@ export class PresetsManager {
                         }
                     ]
                 };
-                this.presets[
+                this.macropresets[
                     `${macro.getId()}_fader_${fader.getNumber()}_inc`
                 ] = {
                     type: "button",
@@ -492,7 +522,7 @@ export class PresetsManager {
                     ],
                     feedbacks: []
                 };
-                this.presets[
+                this.macropresets[
                     `${macro.getId()}_fader_${fader.getNumber()}_dec`
                 ] = {
                     type: "button",
@@ -524,6 +554,10 @@ export class PresetsManager {
                 };
             }
         }
-        this.self.setPresetDefinitions(this.presets);
+        this.self.setPresetDefinitions({});
+        this.self.setPresetDefinitions({
+            ...this.executorpresets,
+            ...this.macropresets
+        });
     }
 }

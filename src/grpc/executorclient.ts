@@ -1,6 +1,5 @@
 import * as GRPC from "@grpc/grpc-js";
 import { ExecutorClientClient } from "../generated/Client/ExecutorClient_grpc_pb";
-import { GRPCClient } from "./grpcclient";
 import { DMXCModuleInstance } from "../main";
 import { ExecutorRepository } from "../dmxcstate/executor/executorrepository";
 import {
@@ -34,11 +33,15 @@ export class ExecutorClient {
         this.eclient.getExecutors(
             new GetMultipleRequest(),
             this.metadata,
-            loggedMethod((response) => this.getExecutorHandler(response))
+            loggedMethod((response) => {
+                this.getExecutorHandler(response);
+            })
         );
         this.eclient
             .receiveExecutorChanges(new GetRequest(), this.metadata)
-            .on("data", (response) => this.executorChangeHandler(response));
+            .on("data", (response: ExecutorChangedMessage) => {
+                this.executorChangeHandler(response);
+            });
     }
 
     getExecutorHandler(response: GetExecutorsResponse): void {

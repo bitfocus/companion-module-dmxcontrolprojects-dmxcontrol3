@@ -42,9 +42,18 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
         this.updateFeedbacks(); // export feedbacks
         this.updateVariableDefinitions(); // export variable definitions
 
-        startDiscovery(config, this, (client) => {
-            this.UmbraClient = client;
-        });
+        if (config.disablediscovery) {
+            this.UmbraClient = new GRPCClient(
+                config.host,
+                config.port,
+                config.devicename
+            );
+            this.UmbraClient.login(config.netid, this);
+        } else {
+            startDiscovery(config, this, (client) => {
+                this.UmbraClient = client;
+            });
+        }
 
         return Promise.resolve();
     }
