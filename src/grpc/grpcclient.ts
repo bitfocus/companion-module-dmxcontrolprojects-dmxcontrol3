@@ -225,13 +225,13 @@ export class GRPCClient {
         return this.metadata;
     }
 
-    public destroy(): void {
+    public destroy(instance: DMXCModuleInstance): void {
         this.connectedClient?.close();
         clearInterval(this.interval);
         this.umbraClient.logoff(
             new UmbraLogoffRequest().setClient(this.clientProgramInfo),
             loggedMethod((response) => {
-                console.log(response);
+                instance.log("debug", response.toString());
                 this.umbraClient.close();
             })
         );

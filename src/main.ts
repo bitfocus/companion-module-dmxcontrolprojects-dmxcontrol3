@@ -60,7 +60,7 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 
     async destroy(): Promise<void> {
         this.log("debug", "destroy");
-        this.UmbraClient?.destroy();
+        this.UmbraClient?.destroy(this);
         return Promise.resolve();
     }
 
