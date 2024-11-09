@@ -223,7 +223,6 @@ export class ActionFactory {
                                 request.setFaderincrement(
                                     event.options.step / 100
                                 );
-                                request.setFaderset(true);
                                 break;
                         }
 
@@ -289,7 +288,6 @@ export class ActionFactory {
                                 request.setFaderincrement(
                                     -event.options.step / 100
                                 );
-                                request.setFaderset(true);
                                 break;
                         }
 
@@ -356,7 +354,6 @@ export class ActionFactory {
                                 request.setFaderabsolut(
                                     event.options.value / 100
                                 );
-                                request.setFaderset(true);
                                 break;
                         }
 
