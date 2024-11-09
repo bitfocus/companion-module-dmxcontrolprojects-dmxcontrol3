@@ -20,10 +20,12 @@
 	},
 	"dependencies": {
 		"@companion-module/base": "~1.9.0",
-		"@grpc/grpc-js": "^1.9.15"
+		"@grpc/grpc-js": "^1.9.15",
+		"google-protobuf": "^3.21.4"
 	},
 	"devDependencies": {
 		"@companion-module/tools": "^1.4.1",
+		"@types/google-protobuf": "^3",
 		"@typescript-eslint/eslint-plugin": "^6.9.0",
 		"@typescript-eslint/parser": "^6.9.0",
 		"eslint": "^8.52.0",
