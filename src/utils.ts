@@ -29,18 +29,15 @@ export function loggedMethod<t>(original: (r: t) => void) {
 export function startDiscovery(
     config: Config,
     instance: DMXCModuleInstance,
-    success: (client: GRPCClient) => void
+    success: (client: GRPCClient) => void,
+    errorclose: () => void
 ): void {
     const client = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
     let umbraClient;
 
     client.on("error", (err) => {
-        console.log("ass", err);
-        if (err.name === "EADDRINUSE") {
-            console.log("ass");
-        }
-        console.log(`UDP client error:\n${err.stack}`);
+        instance.log("error", `UDP client error:\n${err.stack}`);
         client.close();
     });
 
@@ -65,7 +62,7 @@ export function startDiscovery(
                     ?.getUmbraport() ?? config.port,
                 config.devicename
             );
-            umbraClient.login(config.netid, instance);
+            umbraClient.login(config.netid, instance, errorclose, errorclose);
             client.close();
             success(umbraClient);
         } else {

@@ -23,7 +23,6 @@ import { InstanceStatus } from "@companion-module/base";
 import { DMXCNetServiceClient } from "../generated/Common/UmbraClientService_grpc_pb";
 import { UserClientClient } from "../generated/Client/UserClient_grpc_pb";
 import { UserContextRequest } from "../generated/Common/Types/User/UserServiceTypes_pb";
-import { hashPasswordDMXC, loggedMethod } from "../utils";
 import {
     MacroSetButtonStateRequest,
     MacroSetFaderStateRequest
@@ -31,6 +30,7 @@ import {
 import { MacroClient } from "./macroclient";
 import { SetExecutorValuesRequest } from "../generated/Common/Types/Executor/ExecutorServiceCRUDTypes_pb";
 import { ExecutorClient } from "./executorclient";
+import { hashPasswordDMXC } from "../utils";
 
 type DMXCClient = MacroClient | ExecutorClient;
 
@@ -111,18 +111,31 @@ export class GRPCClient {
             new InformClientExistsRequest().setInfo(
                 this.getClientProgramInfo(devicename)
             ),
-            loggedMethod((response) => {
+            (error, response) => {
+                if (error) {
+                    console.error(error);
+                    return;
+                }
                 callback(response);
                 client.close();
-            })
+            }
         );
     }
 
-    public login(netid: string, instance: DMXCModuleInstance) {
+    public login(
+        netid: string,
+        instance: DMXCModuleInstance,
+        onClose: () => void,
+        onError: () => void
+    ) {
         this.clientProgramInfo.getClientinfo()?.setNetworkid(netid);
         this.umbraClient.login(
             new UmbraLoginRequest().setClient(this.clientProgramInfo),
-            loggedMethod((response) => {
+            (error, response) => {
+                if (error) {
+                    onError();
+                    return;
+                }
                 this.metadata = new GRPC.Metadata();
                 this.metadata.add("SessionID", response.getSessionid());
                 this.connectedClient = new ConnectedClientServiceClient(
@@ -134,20 +147,26 @@ export class GRPCClient {
                         new ReadyToWorkState().setReadytowork(true)
                     ),
                     this.metadata,
-                    loggedMethod((response) => {
+                    (error, response) => {
+                        if (error) {
+                            onError();
+                            return;
+                        }
                         if (response.getOk())
                             instance.updateStatus(InstanceStatus.Ok);
-                    })
+                    }
                 );
                 const stream = this.connectedClient.ping(this.metadata);
                 stream.on("error", (err) => {
                     instance.log("error", err.message);
+                    onError();
                 });
                 stream.on("data", (data: PingPong) => {
                     instance.log("debug", data.toString());
                 });
                 stream.on("end", () => {
                     instance.log("debug", "stream end");
+                    onClose();
                 });
                 this.interval = setInterval(
                     () => stream.write(new PingPong()),
@@ -166,30 +185,43 @@ export class GRPCClient {
                             )
                         ),
                     this.metadata,
-                    loggedMethod((_) => {
-                        if (!this.metadata) {
-                            console.error("Metadata not set");
+                    (error, _) => {
+                        if (error) {
+                            instance.log("error", error.message);
+                            onError();
                             return;
                         }
-                        this.clients.set(
-                            "Macro",
-                            new MacroClient(
-                                this.endpoint,
-                                this.metadata,
-                                instance
-                            )
-                        );
-                        this.clients.set(
-                            "Executor",
-                            new ExecutorClient(
-                                this.endpoint,
-                                this.metadata,
-                                instance
-                            )
-                        );
-                    })
+                        if (!this.metadata) {
+                            instance.log("error", "Metadata not set");
+                            return;
+                        }
+                        try {
+                            this.clients.set(
+                                "Macro",
+                                new MacroClient(
+                                    this.endpoint,
+                                    this.metadata,
+                                    instance
+                                )
+                            );
+                            this.clients.set(
+                                "Executor",
+                                new ExecutorClient(
+                                    this.endpoint,
+                                    this.metadata,
+                                    instance
+                                )
+                            );
+                        } catch {
+                            instance.log(
+                                "error",
+                                "Something died while retrieving changes!"
+                            );
+                            onError();
+                        }
+                    }
                 );
-            })
+            }
         );
     }
 
@@ -230,10 +262,14 @@ export class GRPCClient {
         clearInterval(this.interval);
         this.umbraClient.logoff(
             new UmbraLogoffRequest().setClient(this.clientProgramInfo),
-            loggedMethod((response) => {
+            (error, response) => {
+                if (error) {
+                    instance.log("error", error.message);
+                    return;
+                }
                 instance.log("debug", response.toString());
                 this.umbraClient.close();
-            })
+            }
         );
     }
 }

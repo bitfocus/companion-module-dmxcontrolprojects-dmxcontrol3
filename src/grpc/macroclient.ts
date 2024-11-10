@@ -34,14 +34,21 @@ export class MacroClient {
         this.mclient.getMacros(
             new GetMultipleRequest(),
             this.metadata,
-            loggedMethod((response) => {
+            (error, response) => {
+                if (error) {
+                    instance.log("error", error.message);
+                    return;
+                }
                 this.getMacroHandler(response);
-            })
+            }
         );
         this.mclient
             .receiveMacroChanges(new GetRequest(), this.metadata)
             .on("data", (response: MacroChangedMessage) => {
                 this.macroChangeHandler(response);
+            })
+            .on("error", (err) => {
+                instance.log("error", err.message);
             });
     }
 
@@ -56,7 +63,12 @@ export class MacroClient {
         const macro = response.getMacrodata();
         if (macro) {
             this.repo.updateMacro(macro);
-            this.instance.checkFeedbacks("ButtonState", "FaderState", "Bitmap");
+            this.instance.checkFeedbacks(
+                "ButtonState",
+                "ButtonName",
+                "FaderState",
+                "Bitmap"
+            );
         }
     }
 

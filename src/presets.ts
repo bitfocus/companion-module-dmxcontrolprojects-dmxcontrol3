@@ -16,214 +16,78 @@ export class PresetsManager {
         this.executorpresets = {};
         for (const executor of executorlist) {
             const name = executor.getName();
-            let button1name = executor.getButton1displayname();
-            if (!button1name) {
-                button1name = "Button 1";
+
+            // Arrow functions to avoid unintentional scoping
+            const namefunctions = [
+                () => executor.getButton1displayname(),
+                () => executor.getButton2displayname(),
+                () => executor.getButton3displayname(),
+                () => executor.getButton4displayname()
+            ];
+
+            for (let i = 0; i < 4; i++) {
+                const buttonName = namefunctions[i]();
+
+                this.executorpresets[`${executor.getId()}_button_${i + 1}`] = {
+                    type: "button",
+                    category: name,
+                    name: buttonName,
+                    style: {
+                        text:
+                            buttonName.length > 0
+                                ? buttonName
+                                : `Button ${i + 1}`,
+                        size: "auto",
+                        color: combineRgb(255, 255, 255),
+                        bgcolor: combineRgb(0, 0, 0)
+                    },
+                    steps: [
+                        {
+                            down: [
+                                {
+                                    actionId: "press_button",
+                                    options: {
+                                        id: executor.getId(),
+                                        num: i + 1,
+                                        buttonType: "executor"
+                                    }
+                                }
+                            ],
+                            up: [
+                                {
+                                    actionId: "release_button",
+                                    options: {
+                                        id: executor.getId(),
+                                        num: i + 1,
+                                        buttonType: "executor"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    feedbacks: [
+                        {
+                            feedbackId: "ButtonState",
+                            options: {
+                                id: executor.getId(),
+                                num: i + 1,
+                                buttonType: "executor"
+                            },
+                            style: {
+                                bgcolor: combineRgb(255, 0, 0)
+                            }
+                        },
+                        {
+                            feedbackId: "ButtonName",
+                            options: {
+                                id: executor.getId(),
+                                num: i + 1,
+                                buttonType: "executor"
+                            }
+                        }
+                    ]
+                };
             }
-            this.executorpresets[`${executor.getId()}_button_1`] = {
-                type: "button",
-                category: name,
-                name: executor.getButton1displayname(),
-                style: {
-                    text:
-                        executor.getButton1displayname().length > 0
-                            ? executor.getButton1displayname()
-                            : "Button 1",
-                    size: "auto",
-                    color: combineRgb(255, 255, 255),
-                    bgcolor: combineRgb(0, 0, 0)
-                },
-                steps: [
-                    {
-                        down: [
-                            {
-                                actionId: "press_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 1,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ],
-                        up: [
-                            {
-                                actionId: "release_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 1,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                feedbacks: [
-                    {
-                        feedbackId: "ButtonState",
-                        options: {
-                            id: executor.getId(),
-                            num: 1,
-                            buttonType: "executor"
-                        },
-                        style: {
-                            bgcolor: combineRgb(255, 0, 0)
-                        }
-                    }
-                ]
-            };
-            this.executorpresets[`${executor.getId()}_button_2`] = {
-                type: "button",
-                category: name,
-                name: executor.getButton2displayname(),
-                style: {
-                    text:
-                        executor.getButton2displayname().length > 0
-                            ? executor.getButton2displayname()
-                            : "Button 2",
-                    size: "auto",
-                    color: combineRgb(255, 255, 255),
-                    bgcolor: combineRgb(0, 0, 0)
-                },
-                steps: [
-                    {
-                        down: [
-                            {
-                                actionId: "press_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 2,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ],
-                        up: [
-                            {
-                                actionId: "release_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 2,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                feedbacks: [
-                    {
-                        feedbackId: "ButtonState",
-                        options: {
-                            id: executor.getId(),
-                            num: 2,
-                            buttonType: "executor"
-                        },
-                        style: {
-                            bgcolor: combineRgb(255, 0, 0)
-                        }
-                    }
-                ]
-            };
-            this.executorpresets[`${executor.getId()}_button_3`] = {
-                type: "button",
-                category: name,
-                name: executor.getButton3displayname(),
-                style: {
-                    text:
-                        executor.getButton3displayname().length > 0
-                            ? executor.getButton3displayname()
-                            : "Button 3",
-                    size: "auto",
-                    color: combineRgb(255, 255, 255),
-                    bgcolor: combineRgb(0, 0, 0)
-                },
-                steps: [
-                    {
-                        down: [
-                            {
-                                actionId: "press_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 3,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ],
-                        up: [
-                            {
-                                actionId: "release_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 3,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                feedbacks: [
-                    {
-                        feedbackId: "ButtonState",
-                        options: {
-                            id: executor.getId(),
-                            num: 3,
-                            buttonType: "executor"
-                        },
-                        style: {
-                            bgcolor: combineRgb(255, 0, 0)
-                        }
-                    }
-                ]
-            };
-            this.executorpresets[`${executor.getId()}_button_4`] = {
-                type: "button",
-                category: name,
-                name: executor.getButton4displayname(),
-                style: {
-                    text:
-                        executor.getButton4displayname().length > 0
-                            ? executor.getButton4displayname()
-                            : "Button 4",
-                    size: "auto",
-                    color: combineRgb(255, 255, 255),
-                    bgcolor: combineRgb(0, 0, 0)
-                },
-                steps: [
-                    {
-                        down: [
-                            {
-                                actionId: "press_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 4,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ],
-                        up: [
-                            {
-                                actionId: "release_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 4,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                feedbacks: [
-                    {
-                        feedbackId: "ButtonState",
-                        options: {
-                            id: executor.getId(),
-                            num: 4,
-                            buttonType: "executor"
-                        },
-                        style: {
-                            bgcolor: combineRgb(255, 0, 0)
-                        }
-                    }
-                ]
-            };
             this.executorpresets[`${executor.getId()}_fader`] = {
                 type: "button",
                 category: name,
@@ -432,6 +296,14 @@ export class PresetsManager {
                             },
                             style: {
                                 bgcolor: combineRgb(255, 0, 0)
+                            }
+                        },
+                        {
+                            feedbackId: "ButtonName",
+                            options: {
+                                id: macro.getId(),
+                                num: button.getNumber(),
+                                buttonType: "macro"
                             }
                         }
                     ]

@@ -33,14 +33,21 @@ export class ExecutorClient {
         this.eclient.getExecutors(
             new GetMultipleRequest(),
             this.metadata,
-            loggedMethod((response) => {
+            (error, response) => {
+                if (error) {
+                    instance.log("error", error.message);
+                    return;
+                }
                 this.getExecutorHandler(response);
-            })
+            }
         );
         this.eclient
             .receiveExecutorChanges(new GetRequest(), this.metadata)
             .on("data", (response: ExecutorChangedMessage) => {
                 this.executorChangeHandler(response);
+            })
+            .on("error", (error) => {
+                instance.log("error", error.message);
             });
     }
 
@@ -57,7 +64,11 @@ export class ExecutorClient {
         const executor = response.getExecutordata();
         if (executor) {
             this.repo.updateExecutor(executor);
-            this.instance.checkFeedbacks("ButtonState", "FaderState");
+            this.instance.checkFeedbacks(
+                "ButtonState",
+                "ButtonName",
+                "FaderState"
+            );
         }
     }
 
