@@ -144,7 +144,7 @@ export class GRPCClient {
                     instance.log("error", err.message);
                 });
                 stream.on("data", (data: PingPong) => {
-                    instance.log("debug", data.toString());
+                    instance.log("debug", `${data.getClientname()}: ${data.getResponder()}`);
                 });
                 stream.on("end", () => {
                     instance.log("debug", "stream end");
@@ -231,7 +231,7 @@ export class GRPCClient {
         this.umbraClient.logoff(
             new UmbraLogoffRequest().setClient(this.clientProgramInfo),
             loggedMethod((response) => {
-                instance.log("debug", response.toString());
+                instance.log("debug", response.getBye());
                 this.umbraClient.close();
             })
         );

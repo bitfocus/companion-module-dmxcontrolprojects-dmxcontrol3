@@ -24,6 +24,7 @@ export class MacroRepository extends RepositoryBase<IMacro> {
             image: macro.getBitmap()
         };
         this.data.set(macroInstance.ID, macroInstance);
+        this.namelookup.set(macroInstance.name, macroInstance.ID);
     }
 
     public updateMacro(macro: MacroDescriptor) {
@@ -46,6 +47,8 @@ export class MacroRepository extends RepositoryBase<IMacro> {
                 };
             });
             macroInstance.image = macro.getBitmap();
+            this.namelookup.set(macroInstance.name, macroInstance.ID);
+
         } else {
             this.addMacro(macro);
         }

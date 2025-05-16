@@ -14,3 +14,8 @@ export interface IColor {
     b: number;
     a: number;
 }
+
+export interface IDMXCObject {
+    ID: string;
+    name: string;
+}

@@ -38,6 +38,7 @@ export class ExecutorRepository extends RepositoryBase<IExecutor> {
             }
         };
         this.data.set(executorinstance.ID, executorinstance);
+        this.namelookup.set(executorinstance.name, executorinstance.ID);
     }
 
     updateExecutor(executor: ExecutorDescriptor) {
@@ -74,6 +75,7 @@ export class ExecutorRepository extends RepositoryBase<IExecutor> {
                 label: executor.getFaderdisplayname(),
                 position: executor.getFaderposition()
             };
+            this.namelookup.set(executorinstance.name, executorinstance.ID);
         } else {
             this.addExecutor(executor);
         }

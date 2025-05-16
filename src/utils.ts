@@ -16,8 +16,8 @@ export function hashPasswordDMXC(password: string): string {
     return hash.update(start).digest("base64");
 }
 
-export function loggedMethod<t>(original: (r: t) => void) {
-    return (e: Error | null, r: t) => {
+export function loggedMethod<T>(original: (r: T) => void) {
+    return (e: Error | null, r: T) => {
         if (e) {
             console.error(e);
             return;
@@ -36,10 +36,6 @@ export function startDiscovery(
     let umbraClient;
 
     client.on("error", (err) => {
-        console.log("ass", err);
-        if (err.name === "EADDRINUSE") {
-            console.log("ass");
-        }
         console.log(`UDP client error:\n${err.stack}`);
         client.close();
     });
