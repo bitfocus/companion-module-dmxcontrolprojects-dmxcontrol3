@@ -15,16 +15,16 @@
 		"url": "git+https://github.com/bitfocus/companion-module-dmxcontrolprojects-dmxcontrol3.git"
 	},
 	"dependencies": {
-		"@companion-module/base": "~1.9.0",
-		"@deluxequadrat/dmxc-grpc-client": "^1.0.1"
+		"@companion-module/base": "~1.11.0",
+		"@deluxequadrat/dmxc-grpc-client": "^1.0.2"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^1.4.1",
-		"@typescript-eslint/eslint-plugin": "^6.9.0",
-		"@typescript-eslint/parser": "^6.9.0",
-		"eslint": "^8.52.0",
-		"eslint-config-prettier": "^9.0.0",
-		"prettier": "^3.2.5",
+		"@companion-module/tools": "^2.3.0",
+		"@typescript-eslint/eslint-plugin": "^8.33.0",
+		"@typescript-eslint/parser": "^8.33.0",
+		"eslint": "^9.27.0",
+		"eslint-config-prettier": "^10.1.0",
+		"prettier": "^3.5.3",
 		"typescript": "^5.8.3"
 	},
 	"packageManager": "yarn@4.5.1"

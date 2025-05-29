@@ -226,8 +226,9 @@ export class ActionFactory {
                                 break;
                         }
 
-                        if (request)
+                        if (request) {
                             this.instance.UmbraClient?.sendFaderState(request);
+                        }
                     }
                     return Promise.resolve();
                 }

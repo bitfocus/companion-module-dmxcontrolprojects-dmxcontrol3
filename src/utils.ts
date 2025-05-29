@@ -29,14 +29,14 @@ export function loggedMethod<T>(original: (r: T) => void) {
 export function startDiscovery(
     config: Config,
     instance: DMXCModuleInstance,
-    success: (client: GRPCClient) => void
+    success: (client: GRPCClient, config: Config) => void
 ): void {
     const client = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
     let umbraClient;
 
     client.on("error", (err) => {
-        console.log(`UDP client error:\n${err.stack}`);
+        instance.log("error", `UDP client error:\n${err.stack}`);
         client.close();
     });
 
@@ -44,7 +44,8 @@ export function startDiscovery(
         const umbraUdpBroadcast = UmbraUdpBroadcast.decode(msg);
         const clientInfo = umbraUdpBroadcast.umbraServer?.clientInfo;
         const netid = umbraUdpBroadcast.umbraServer?.clientInfo?.networkid;
-        console.log(
+        instance.log(
+            "debug",
             `UDP client got message from ${rinfo.address}:${rinfo.port}: ${clientInfo?.hostname}:${clientInfo?.clientname}:${clientInfo?.networkid}`
         );
         if (netid === config.netid) {
@@ -52,11 +53,12 @@ export function startDiscovery(
                 rinfo.address,
                 umbraUdpBroadcast.umbraServer?.clientInfo?.umbraPort ??
                     config.port,
-                config.devicename
+                config.devicename,
+                instance
             );
             umbraClient.login(config.netid, instance);
             client.close();
-            success(umbraClient);
+            success(umbraClient, config);
         } else {
             const port =
                 umbraUdpBroadcast.umbraServer?.clientInfo?.umbraPort ?? 17475;
@@ -64,6 +66,7 @@ export function startDiscovery(
                 rinfo.address,
                 port,
                 config.devicename,
+                instance.runtimeid,
                 (response) => {
                     response.requests.forEach((request) => {
                         if (request.targetNetworkId) {

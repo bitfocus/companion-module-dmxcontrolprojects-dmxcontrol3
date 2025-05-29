@@ -13,6 +13,7 @@ import { startDiscovery } from "./utils";
 import { MacroRepository } from "./dmxcstate/macro/macrorepository";
 import { PresetsManager } from "./presets";
 import { ExecutorRepository } from "./dmxcstate/executor/executorrepository";
+import { randomUUID } from "crypto";
 
 type DMXCRepository = MacroRepository | ExecutorRepository;
 
@@ -27,8 +28,12 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 
     public presets?: PresetsManager;
 
+    public runtimeid: string = "";
+
     async init(config: Config) {
         this.config = config;
+
+        this.runtimeid = randomUUID().toString();
 
         this.updateStatus(InstanceStatus.Connecting);
 
@@ -46,12 +51,14 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
             this.UmbraClient = new GRPCClient(
                 config.host,
                 config.port,
-                config.devicename
+                config.devicename,
+                this
             );
             this.UmbraClient.login(config.netid, this);
         } else {
-            startDiscovery(config, this, (client) => {
+            startDiscovery(config, this, (client, config) => {
                 this.UmbraClient = client;
+                this.saveConfig(config);
             });
         }
 

@@ -48,9 +48,16 @@ export class GRPCClient {
 
     private clients: Map<DMXCClientKey, DMXCClient>;
 
+    private instance: DMXCModuleInstance;
+
     private requestid = 0;
 
-    constructor(host: string, port: number, deviceName: string) {
+    constructor(
+        host: string,
+        port: number,
+        deviceName: string,
+        instance: DMXCModuleInstance
+    ) {
         this.endpoint = `${host}:${port}`;
 
         this.umbraClient = new ClientServiceClient(
@@ -58,16 +65,24 @@ export class GRPCClient {
             GRPC.credentials.createInsecure()
         );
 
-        this.clientProgramInfo = GRPCClient.getClientProgramInfo(deviceName);
+        this.clientProgramInfo = GRPCClient.getClientProgramInfo(
+            deviceName,
+            instance.runtimeid
+        );
 
         this.clients = new Map<DMXCClientKey, DMXCClient>();
+
+        this.instance = instance;
     }
 
     public getRequestId(): number {
         return this.requestid++;
     }
 
-    public static getClientProgramInfo(deviceName: string): ClientProgramInfo {
+    public static getClientProgramInfo(
+        deviceName: string,
+        runtimeid: string
+    ): ClientProgramInfo {
         const clientProgramInfo = ClientProgramInfo.create();
 
         const programInfo = ProgramInfo.create();
@@ -91,6 +106,7 @@ export class GRPCClient {
         clientInfo.type = EClientType.ExternalTool;
         clientInfo.clientname = deviceName;
         clientInfo.clientCapabilities = 0;
+        clientInfo.runtimeid = runtimeid;
 
         clientProgramInfo.clientInfo = clientInfo;
         clientProgramInfo.programInfo = programInfo;
@@ -102,6 +118,7 @@ export class GRPCClient {
         host: string,
         port: number,
         devicename: string,
+        runtimeid: string,
         callback: (response: InformClientExistsResponse) => void
     ) {
         const client = new DMXCNetServiceClient(
@@ -110,7 +127,7 @@ export class GRPCClient {
         );
         client.informClientExists(
             InformClientExistsRequest.create({
-                info: this.getClientProgramInfo(devicename)
+                info: this.getClientProgramInfo(devicename, runtimeid)
             }),
             loggedMethod((response) => {
                 callback(response);
@@ -202,11 +219,19 @@ export class GRPCClient {
         request: MacroSetFaderStateRequest | SetExecutorValuesRequest
     ) {
         request.requestId = this.getRequestId().toString();
-        if ("macroid" in request) {
+        if ("macroId" in request) {
+            request.macroId =
+                this.instance.repositories
+                    ?.get("MacroRepository")
+                    ?.getSingle(request.macroId)?.ID ?? request.macroId;
             const client = this.clients.get("Macro") as MacroClient;
             client.sendFaderState(request as MacroSetFaderStateRequest);
         }
-        if ("executorid" in request) {
+        if ("executorId" in request) {
+            request.executorId =
+                this.instance.repositories
+                    ?.get("ExecutorRepository")
+                    ?.getSingle(request.executorId)?.ID ?? request.executorId;
             const client = this.clients.get("Executor") as ExecutorClient;
             client.sendExecutorState(request as SetExecutorValuesRequest);
         }
@@ -216,11 +241,19 @@ export class GRPCClient {
         request: MacroSetButtonStateRequest | SetExecutorValuesRequest
     ) {
         request.requestId = this.getRequestId().toString();
-        if ("macroid" in request) {
+        if ("macroId" in request) {
+            request.macroId =
+                this.instance.repositories
+                    ?.get("MacroRepository")
+                    ?.getSingle(request.macroId)?.ID ?? request.macroId;
             const client = this.clients.get("Macro") as MacroClient;
             client.sendButtonState(request as MacroSetButtonStateRequest);
         }
-        if ("executorid" in request) {
+        if ("executorId" in request) {
+            request.executorId =
+                this.instance.repositories
+                    ?.get("MacroRepository")
+                    ?.getSingle(request.executorId)?.ID ?? request.executorId;
             const client = this.clients.get("Executor") as ExecutorClient;
             client.sendExecutorState(request as SetExecutorValuesRequest);
         }
