@@ -51,7 +51,7 @@ export class PresetsManager {
                                 {
                                     actionId: "press_button",
                                     options: {
-                                        id: executor.id,
+                                        id: executor.name,
                                         num: i,
                                         buttonType: "executor"
                                     }
@@ -61,7 +61,7 @@ export class PresetsManager {
                                 {
                                     actionId: "release_button",
                                     options: {
-                                        id: executor.id,
+                                        id: executor.name,
                                         num: i,
                                         buttonType: "executor"
                                     }
@@ -73,7 +73,7 @@ export class PresetsManager {
                         {
                             feedbackId: "ButtonState",
                             options: {
-                                id: executor.id,
+                                id: executor.name,
                                 num: i,
                                 buttonType: "executor"
                             },
@@ -108,7 +108,7 @@ export class PresetsManager {
                             {
                                 actionId: "decrement_fader",
                                 options: {
-                                    id: executor.id,
+                                    id: executor.name,
                                     num: 1,
                                     step: 5,
                                     faderType: "executor"
@@ -119,7 +119,7 @@ export class PresetsManager {
                             {
                                 actionId: "increment_fader",
                                 options: {
-                                    id: executor.id,
+                                    id: executor.name,
                                     num: 1,
                                     step: 5,
                                     faderType: "executor"
@@ -132,7 +132,7 @@ export class PresetsManager {
                     {
                         feedbackId: "FaderState",
                         options: {
-                            id: executor.id,
+                            id: executor.name,
                             num: 1,
                             faderType: "executor"
                         }
@@ -155,7 +155,7 @@ export class PresetsManager {
                             {
                                 actionId: "increment_fader",
                                 options: {
-                                    id: executor.id,
+                                    id: executor.name,
                                     num: 1,
                                     step: 5,
                                     faderType: "executor"
@@ -169,7 +169,7 @@ export class PresetsManager {
                     {
                         feedbackId: "FaderState",
                         options: {
-                            id: executor.id,
+                            id: executor.name,
                             num: 1,
                             faderType: "executor"
                         }
@@ -192,7 +192,7 @@ export class PresetsManager {
                             {
                                 actionId: "decrement_fader",
                                 options: {
-                                    id: executor.id,
+                                    id: executor.name,
                                     num: 1,
                                     step: 5,
                                     faderType: "executor"
@@ -206,7 +206,7 @@ export class PresetsManager {
                     {
                         feedbackId: "FaderState",
                         options: {
-                            id: executor.id,
+                            id: executor.name,
                             num: 1,
                             faderType: "executor"
                         }
@@ -240,7 +240,7 @@ export class PresetsManager {
                     {
                         feedbackId: "Bitmap",
                         options: {
-                            macroid: macro.id
+                            macroid: macro.name
                         }
                     }
                 ]
@@ -262,7 +262,7 @@ export class PresetsManager {
                                 {
                                     actionId: "press_button",
                                     options: {
-                                        id: macro.id,
+                                        id: macro.name,
                                         num: button.number,
                                         buttonType: "macro"
                                     }
@@ -272,7 +272,7 @@ export class PresetsManager {
                                 {
                                     actionId: "release_button",
                                     options: {
-                                        id: macro.id,
+                                        id: macro.name,
                                         num: button.number,
                                         buttonType: "macro"
                                     }
@@ -284,7 +284,7 @@ export class PresetsManager {
                         {
                             feedbackId: "ButtonState",
                             options: {
-                                id: macro.id,
+                                id: macro.name,
                                 num: button.number,
                                 buttonType: "macro"
                             },
@@ -317,7 +317,7 @@ export class PresetsManager {
                                 {
                                     actionId: "decrement_fader",
                                     options: {
-                                        id: macro.id,
+                                        id: macro.name,
                                         num: fader.number,
                                         step: 5,
                                         faderType: "macro"
@@ -328,7 +328,7 @@ export class PresetsManager {
                                 {
                                     actionId: "increment_fader",
                                     options: {
-                                        id: macro.id,
+                                        id: macro.name,
                                         num: fader.number,
                                         step: 5,
                                         faderType: "macro"
@@ -341,7 +341,7 @@ export class PresetsManager {
                         {
                             feedbackId: "FaderState",
                             options: {
-                                id: macro.id,
+                                id: macro.name,
                                 num: fader.number,
                                 faderType: "macro"
                             }
@@ -364,7 +364,7 @@ export class PresetsManager {
                                 {
                                     actionId: "increment_fader",
                                     options: {
-                                        id: macro.id,
+                                        id: macro.name,
                                         num: fader.number,
                                         step: 5,
                                         faderType: "macro"
@@ -392,7 +392,7 @@ export class PresetsManager {
                                 {
                                     actionId: "decrement_fader",
                                     options: {
-                                        id: macro.id,
+                                        id: macro.name,
                                         num: fader.number,
                                         step: 5,
                                         faderType: "macro"
