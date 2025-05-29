@@ -1,19 +1,19 @@
 import { Metadata } from "@grpc/grpc-js";
-import { MacroClientClient } from "../generated/Client/MacroClient_grpc_pb";
 import * as GRPC from "@grpc/grpc-js";
 import { DMXCModuleInstance } from "../main";
+import { loggedMethod } from "../utils";
+import { MacroRepository } from "../dmxcstate/macro/macrorepository";
 import {
     GetMultipleRequest,
     GetRequest
-} from "../generated/Common/Types/CommonTypes_pb";
-import { loggedMethod } from "../utils";
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
 import {
-    GetMacrosResponse,
     MacroChangedMessage,
-    MacroSetButtonStateRequest,
-    MacroSetFaderStateRequest
-} from "../generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
-import { MacroRepository } from "../dmxcstate/macro/macrorepository";
+    GetMacrosResponse,
+    MacroSetFaderStateRequest,
+    MacroSetButtonStateRequest
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
+import { MacroClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
 
 export class MacroClient {
     private mclient: MacroClientClient;
@@ -32,28 +32,28 @@ export class MacroClient {
             GRPC.credentials.createInsecure()
         );
         this.mclient.getMacros(
-            new GetMultipleRequest(),
+            GetMultipleRequest.create(),
             this.metadata,
             loggedMethod((response) => {
                 this.getMacroHandler(response);
             })
         );
         this.mclient
-            .receiveMacroChanges(new GetRequest(), this.metadata)
+            .receiveMacroChanges(GetRequest.create(), this.metadata)
             .on("data", (response: MacroChangedMessage) => {
                 this.macroChangeHandler(response);
             });
     }
 
     getMacroHandler(response: GetMacrosResponse): void {
-        response.getMacrosList().forEach((macro) => {
+        response.macros.forEach((macro) => {
             this.repo.addMacro(macro);
         });
-        this.instance.presets?.createMacroPresets(response.getMacrosList());
+        this.instance.presets?.createMacroPresets(response.macros);
     }
 
     macroChangeHandler(response: MacroChangedMessage) {
-        const macro = response.getMacrodata();
+        const macro = response.macroData;
         if (macro) {
             this.repo.updateMacro(macro);
             this.instance.checkFeedbacks("ButtonState", "FaderState", "Bitmap");
@@ -61,16 +61,16 @@ export class MacroClient {
     }
 
     sendFaderState(request: MacroSetFaderStateRequest) {
-        this.instance.log("debug", request.toString());
+        this.instance.log("debug", `Macro:${request.macroId}`);
         this.mclient.setMacroFaderState(
             request,
             this.metadata,
             loggedMethod((response) => {
-                this.instance.log("debug", response.toString());
-                if (!response.getOk()) {
+                this.instance.log("debug", `${response.message?.formatString}`);
+                if (!response.ok) {
                     this.instance.log(
                         "error",
-                        `Error setting FaderState: ${request.getMacroid()}-${request.getFadernumber()}`
+                        `Error setting FaderState: ${request.macroId}-${request.faderNumber}`
                     );
                 }
             })
@@ -82,10 +82,10 @@ export class MacroClient {
             request,
             this.metadata,
             loggedMethod((response) => {
-                if (!response.getOk()) {
+                if (!response.ok) {
                     this.instance.log(
                         "error",
-                        `Error setting ButtonState: ${request.getMacroid()}-${request.getButtonnumber()}`
+                        `Error setting ButtonState: ${request.macroId}-${request.buttonNumber}`
                     );
                 }
             })

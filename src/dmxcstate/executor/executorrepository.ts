@@ -1,40 +1,40 @@
-import { ExecutorDescriptor } from "../../generated/Common/Types/Executor/ExecutorServiceTypes_pb";
+import { ExecutorDescriptor } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
 import { RepositoryBase } from "../repositorybase";
 import { IExecutor } from "./iexecutor";
 
 export class ExecutorRepository extends RepositoryBase<IExecutor> {
     public addExecutor(executor: ExecutorDescriptor) {
         const executorinstance: IExecutor = {
-            ID: executor.getId(),
-            memberID: executor.getExecutormemberid(),
-            number: executor.getNumber(),
-            name: executor.getName(),
+            ID: executor.id,
+            memberID: executor.executorMemberId,
+            number: executor.number,
+            name: executor.name,
             buttons: [
                 {
-                    key: executor.getButton1key(),
-                    label: executor.getButton1displayname(),
-                    active: executor.getButton1active()
+                    key: executor.button1Key,
+                    label: executor.button1DisplayName,
+                    active: executor.button1Active
                 },
                 {
-                    key: executor.getButton2key(),
-                    label: executor.getButton2displayname(),
-                    active: executor.getButton2active()
+                    key: executor.button2Key,
+                    label: executor.button2DisplayName,
+                    active: executor.button2Active
                 },
                 {
-                    key: executor.getButton3key(),
-                    label: executor.getButton3displayname(),
-                    active: executor.getButton3active()
+                    key: executor.button3Key,
+                    label: executor.button3DisplayName,
+                    active: executor.button3Active
                 },
                 {
-                    key: executor.getButton4key(),
-                    label: executor.getButton4displayname(),
-                    active: executor.getButton4active()
+                    key: executor.button4Key,
+                    label: executor.button4DisplayName,
+                    active: executor.button4Active
                 }
             ],
             fader: {
-                key: executor.getFaderkey(),
-                label: executor.getFaderdisplayname(),
-                position: executor.getFaderposition()
+                key: executor.faderKey,
+                label: executor.faderDisplayName,
+                position: executor.faderPosition
             }
         };
         this.data.set(executorinstance.ID, executorinstance);
@@ -42,38 +42,38 @@ export class ExecutorRepository extends RepositoryBase<IExecutor> {
     }
 
     updateExecutor(executor: ExecutorDescriptor) {
-        const executorinstance = this.data.get(executor.getId());
+        const executorinstance = this.data.get(executor.id);
 
         if (executorinstance) {
-            executorinstance.name = executor.getName();
-            executorinstance.memberID = executor.getExecutormemberid();
-            executorinstance.number = executor.getNumber();
+            executorinstance.name = executor.name;
+            executorinstance.memberID = executor.executorMemberId;
+            executorinstance.number = executor.number;
             executorinstance.buttons = [
                 {
-                    key: executor.getButton1key(),
-                    label: executor.getButton1displayname(),
-                    active: executor.getButton1active()
+                    key: executor.button1Key,
+                    label: executor.button1DisplayName,
+                    active: executor.button1Active
                 },
                 {
-                    key: executor.getButton2key(),
-                    label: executor.getButton2displayname(),
-                    active: executor.getButton2active()
+                    key: executor.button2Key,
+                    label: executor.button2DisplayName,
+                    active: executor.button2Active
                 },
                 {
-                    key: executor.getButton3key(),
-                    label: executor.getButton3displayname(),
-                    active: executor.getButton3active()
+                    key: executor.button3Key,
+                    label: executor.button3DisplayName,
+                    active: executor.button3Active
                 },
                 {
-                    key: executor.getButton4key(),
-                    label: executor.getButton4displayname(),
-                    active: executor.getButton4active()
+                    key: executor.button4Key,
+                    label: executor.button4DisplayName,
+                    active: executor.button4Active
                 }
             ];
             executorinstance.fader = {
-                key: executor.getFaderkey(),
-                label: executor.getFaderdisplayname(),
-                position: executor.getFaderposition()
+                key: executor.faderKey,
+                label: executor.faderDisplayName,
+                position: executor.faderPosition
             };
             this.namelookup.set(executorinstance.name, executorinstance.ID);
         } else {

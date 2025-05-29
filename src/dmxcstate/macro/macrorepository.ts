@@ -1,54 +1,53 @@
-import { MacroDescriptor } from "../../generated/Common/Types/Macro/MacroServiceTypes_pb";
 import { IMacro } from "./imacro";
 import { RepositoryBase } from "../repositorybase";
+import { MacroDescriptor } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
 
 export class MacroRepository extends RepositoryBase<IMacro> {
     public addMacro(macro: MacroDescriptor) {
         const macroInstance: IMacro = {
-            ID: macro.getId(),
-            name: macro.getName(),
-            buttons: macro.getButtonsList().map((b) => {
+            ID: macro.id,
+            name: macro.name,
+            buttons: macro.buttons.map((b) => {
                 return {
-                    label: b.getLabel(),
-                    number: b.getNumber(),
-                    active: b.getActive()
+                    label: b.label,
+                    number: b.number,
+                    active: b.active
                 };
             }),
-            faders: macro.getFadersList().map((f) => {
+            faders: macro.faders.map((f) => {
                 return {
-                    label: f.getLabel(),
-                    number: f.getNumber(),
-                    position: f.getFaderposition()
+                    label: f.label,
+                    number: f.number,
+                    position: f.faderPosition
                 };
             }),
-            image: macro.getBitmap()
+            image: macro.bitmap
         };
         this.data.set(macroInstance.ID, macroInstance);
         this.namelookup.set(macroInstance.name, macroInstance.ID);
     }
 
     public updateMacro(macro: MacroDescriptor) {
-        const macroInstance = this.data.get(macro.getId());
+        const macroInstance = this.data.get(macro.id);
 
         if (macroInstance) {
-            macroInstance.name = macro.getName();
-            macroInstance.buttons = macro.getButtonsList().map((b) => {
+            macroInstance.name = macro.name;
+            macroInstance.buttons = macro.buttons.map((b) => {
                 return {
-                    label: b.getLabel(),
-                    number: b.getNumber(),
-                    active: b.getActive()
+                    label: b.label,
+                    number: b.number,
+                    active: b.active
                 };
             });
-            macroInstance.faders = macro.getFadersList().map((f) => {
+            macroInstance.faders = macro.faders.map((f) => {
                 return {
-                    label: f.getLabel(),
-                    number: f.getNumber(),
-                    position: f.getFaderposition()
+                    label: f.label,
+                    number: f.number,
+                    position: f.faderPosition
                 };
             });
-            macroInstance.image = macro.getBitmap();
+            macroInstance.image = macro.bitmap;
             this.namelookup.set(macroInstance.name, macroInstance.ID);
-
         } else {
             this.addMacro(macro);
         }

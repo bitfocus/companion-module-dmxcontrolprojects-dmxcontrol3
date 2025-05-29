@@ -1,10 +1,16 @@
 import * as GRPC from "@grpc/grpc-js";
 import * as OS from "os";
 
+import { DMXCModuleInstance } from "../main";
+import { InstanceStatus } from "@companion-module/base";
+import { hashPasswordDMXC, loggedMethod } from "../utils";
+import { MacroClient } from "./macroclient";
+import { ExecutorClient } from "./executorclient";
 import {
     ClientServiceClient,
-    ConnectedClientServiceClient
-} from "../generated/Common/UmbraClientService_grpc_pb";
+    ConnectedClientServiceClient,
+    DMXCNetServiceClient
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufCommon";
 import {
     ClientInfo,
     ClientProgramInfo,
@@ -17,20 +23,14 @@ import {
     UmbraClientReadyToWorkNotification,
     UmbraLoginRequest,
     UmbraLogoffRequest
-} from "../generated/Common/Types/UmbraServiceTypes_pb";
-import { DMXCModuleInstance } from "../main";
-import { InstanceStatus } from "@companion-module/base";
-import { DMXCNetServiceClient } from "../generated/Common/UmbraClientService_grpc_pb";
-import { UserClientClient } from "../generated/Client/UserClient_grpc_pb";
-import { UserContextRequest } from "../generated/Common/Types/User/UserServiceTypes_pb";
-import { hashPasswordDMXC, loggedMethod } from "../utils";
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
+import { SetExecutorValuesRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
 import {
-    MacroSetButtonStateRequest,
-    MacroSetFaderStateRequest
-} from "../generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
-import { MacroClient } from "./macroclient";
-import { SetExecutorValuesRequest } from "../generated/Common/Types/Executor/ExecutorServiceCRUDTypes_pb";
-import { ExecutorClient } from "./executorclient";
+    MacroSetFaderStateRequest,
+    MacroSetButtonStateRequest
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
+import { UserContextRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.User";
+import { UserClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
 
 type DMXCClient = MacroClient | ExecutorClient;
 
@@ -68,13 +68,13 @@ export class GRPCClient {
     }
 
     public static getClientProgramInfo(deviceName: string): ClientProgramInfo {
-        const clientProgramInfo = new ClientProgramInfo();
+        const clientProgramInfo = ClientProgramInfo.create();
 
-        const programInfo = new ProgramInfo();
-        programInfo.setProgrammname(deviceName);
-        programInfo.setProgramversion("1.0.0");
-        programInfo.setVendor("DMXControl Projects e.V.");
-        programInfo.setBuilddate(new Date().valueOf());
+        const programInfo = ProgramInfo.create();
+        programInfo.programmName = deviceName;
+        programInfo.programVersion = "1.0.0";
+        programInfo.vendor = "DMXControl Projects e.V.";
+        programInfo.buildDate = new Date().valueOf();
 
         const ips = [];
 
@@ -85,16 +85,17 @@ export class GRPCClient {
             }
         }
 
-        const clientInfo = new ClientInfo();
-        clientInfo.setHostname(OS.hostname());
-        clientInfo.setIpsList(ips);
-        clientInfo.setType(EClientType.EXTERNALTOOL);
-        clientInfo.setClientname(deviceName);
-        clientInfo.setClientcapabilities(0);
+        const clientInfo = ClientInfo.create();
+        clientInfo.hostname = OS.hostname();
+        clientInfo.ips = ips;
+        clientInfo.type = EClientType.ExternalTool;
+        clientInfo.clientname = deviceName;
+        clientInfo.clientCapabilities = 0;
 
-        return clientProgramInfo
-            .setClientinfo(clientInfo)
-            .setPrograminfo(programInfo);
+        clientProgramInfo.clientInfo = clientInfo;
+        clientProgramInfo.programInfo = programInfo;
+
+        return clientProgramInfo;
     }
 
     public static clientExists(
@@ -108,9 +109,9 @@ export class GRPCClient {
             GRPC.credentials.createInsecure()
         );
         client.informClientExists(
-            new InformClientExistsRequest().setInfo(
-                this.getClientProgramInfo(devicename)
-            ),
+            InformClientExistsRequest.create({
+                info: this.getClientProgramInfo(devicename)
+            }),
             loggedMethod((response) => {
                 callback(response);
                 client.close();
@@ -119,23 +120,25 @@ export class GRPCClient {
     }
 
     public login(netid: string, instance: DMXCModuleInstance) {
-        this.clientProgramInfo.getClientinfo()?.setNetworkid(netid);
+        if (this.clientProgramInfo.clientInfo) {
+            this.clientProgramInfo.clientInfo.networkid = netid;
+        }
         this.umbraClient.login(
-            new UmbraLoginRequest().setClient(this.clientProgramInfo),
+            UmbraLoginRequest.create({ client: this.clientProgramInfo }),
             loggedMethod((response) => {
                 this.metadata = new GRPC.Metadata();
-                this.metadata.add("SessionID", response.getSessionid());
+                this.metadata.add("SessionID", response.sessionId);
                 this.connectedClient = new ConnectedClientServiceClient(
                     this.endpoint,
                     GRPC.credentials.createInsecure()
                 );
                 this.connectedClient.reportReadyToWork(
-                    new UmbraClientReadyToWorkNotification().setState(
-                        new ReadyToWorkState().setReadytowork(true)
-                    ),
+                    UmbraClientReadyToWorkNotification.create({
+                        state: ReadyToWorkState.create({ readyToWork: true })
+                    }),
                     this.metadata,
                     loggedMethod((response) => {
-                        if (response.getOk())
+                        if (response.ok)
                             instance.updateStatus(InstanceStatus.Ok);
                     })
                 );
@@ -144,13 +147,16 @@ export class GRPCClient {
                     instance.log("error", err.message);
                 });
                 stream.on("data", (data: PingPong) => {
-                    instance.log("debug", `${data.getClientname()}: ${data.getResponder()}`);
+                    instance.log(
+                        "debug",
+                        `${data.clientname}: ${data.responder}`
+                    );
                 });
                 stream.on("end", () => {
                     instance.log("debug", "stream end");
                 });
                 this.interval = setInterval(
-                    () => stream.write(new PingPong()),
+                    () => stream.write(PingPong.create()),
                     10000
                 );
 
@@ -158,13 +164,12 @@ export class GRPCClient {
                     this.endpoint,
                     GRPC.credentials.createInsecure()
                 ).bind(
-                    new UserContextRequest()
-                        .setUsername(instance.config?.username ?? "DMXCDefault")
-                        .setPasswordhash(
-                            hashPasswordDMXC(
-                                instance.config?.password ?? "DMXC3"
-                            )
-                        ),
+                    UserContextRequest.create({
+                        username: instance.config?.username ?? "DMXCDefault",
+                        passwordHash: hashPasswordDMXC(
+                            instance.config?.password ?? "DMXC3"
+                        )
+                    }),
                     this.metadata,
                     loggedMethod((_) => {
                         if (!this.metadata) {
@@ -196,12 +201,12 @@ export class GRPCClient {
     public sendFaderState(
         request: MacroSetFaderStateRequest | SetExecutorValuesRequest
     ) {
-        request.setRequestid(this.getRequestId().toString());
-        if ("macroid" in request.toObject()) {
+        request.requestId = this.getRequestId().toString();
+        if ("macroid" in request) {
             const client = this.clients.get("Macro") as MacroClient;
             client.sendFaderState(request as MacroSetFaderStateRequest);
         }
-        if ("executorid" in request.toObject()) {
+        if ("executorid" in request) {
             const client = this.clients.get("Executor") as ExecutorClient;
             client.sendExecutorState(request as SetExecutorValuesRequest);
         }
@@ -210,12 +215,12 @@ export class GRPCClient {
     public sendButtonState(
         request: MacroSetButtonStateRequest | SetExecutorValuesRequest
     ) {
-        request.setRequestid(this.getRequestId().toString());
-        if ("macroid" in request.toObject()) {
+        request.requestId = this.getRequestId().toString();
+        if ("macroid" in request) {
             const client = this.clients.get("Macro") as MacroClient;
             client.sendButtonState(request as MacroSetButtonStateRequest);
         }
-        if ("executorid" in request.toObject()) {
+        if ("executorid" in request) {
             const client = this.clients.get("Executor") as ExecutorClient;
             client.sendExecutorState(request as SetExecutorValuesRequest);
         }
@@ -229,9 +234,9 @@ export class GRPCClient {
         this.connectedClient?.close();
         clearInterval(this.interval);
         this.umbraClient.logoff(
-            new UmbraLogoffRequest().setClient(this.clientProgramInfo),
+            UmbraLogoffRequest.create({ client: this.clientProgramInfo }),
             loggedMethod((response) => {
-                instance.log("debug", response.getBye());
+                instance.log("debug", response.bye);
                 this.umbraClient.close();
             })
         );

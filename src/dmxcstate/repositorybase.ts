@@ -5,7 +5,9 @@ export class RepositoryBase<T extends IDMXCObject> {
     protected namelookup: Map<string, string> = new Map<string, string>();
 
     public getSingle(id: string): T | undefined {
-        return this.data.get(id) ?? this.data.get(this.namelookup.get(id) ?? "");
+        return (
+            this.data.get(id) ?? this.data.get(this.namelookup.get(id) ?? "")
+        );
     }
 
     public getAll(): T[] {

@@ -1,17 +1,17 @@
 import * as GRPC from "@grpc/grpc-js";
-import { ExecutorClientClient } from "../generated/Client/ExecutorClient_grpc_pb";
 import { DMXCModuleInstance } from "../main";
 import { ExecutorRepository } from "../dmxcstate/executor/executorrepository";
+import { loggedMethod } from "../utils";
+import { ExecutorClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
+import {
+    GetMultipleRequest,
+    GetRequest
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
 import {
     ExecutorChangedMessage,
     GetExecutorsResponse,
     SetExecutorValuesRequest
-} from "../generated/Common/Types/Executor/ExecutorServiceCRUDTypes_pb";
-import {
-    GetMultipleRequest,
-    GetRequest
-} from "../generated/Common/Types/CommonTypes_pb";
-import { loggedMethod } from "../utils";
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
 
 export class ExecutorClient {
     private eclient: ExecutorClientClient;
@@ -31,30 +31,28 @@ export class ExecutorClient {
             GRPC.credentials.createInsecure()
         );
         this.eclient.getExecutors(
-            new GetMultipleRequest(),
+            GetMultipleRequest.create(),
             this.metadata,
             loggedMethod((response) => {
                 this.getExecutorHandler(response);
             })
         );
         this.eclient
-            .receiveExecutorChanges(new GetRequest(), this.metadata)
+            .receiveExecutorChanges(GetRequest.create(), this.metadata)
             .on("data", (response: ExecutorChangedMessage) => {
                 this.executorChangeHandler(response);
             });
     }
 
     getExecutorHandler(response: GetExecutorsResponse): void {
-        response.getExecutorsList().forEach((executor) => {
+        response.executors.forEach((executor) => {
             this.repo.addExecutor(executor);
         });
-        this.instance.presets?.createExecutorPresets(
-            response.getExecutorsList()
-        );
+        this.instance.presets?.createExecutorPresets(response.executors);
     }
 
     executorChangeHandler(response: ExecutorChangedMessage) {
-        const executor = response.getExecutordata();
+        const executor = response.executorData;
         if (executor) {
             this.repo.updateExecutor(executor);
             this.instance.checkFeedbacks("ButtonState", "FaderState");
@@ -66,10 +64,10 @@ export class ExecutorClient {
             request,
             this.metadata,
             loggedMethod((response) => {
-                if (!response.getOk()) {
+                if (!response.ok) {
                     this.instance.log(
                         "error",
-                        `Error setting ExecutorState: ${request.getExecutorid()}`
+                        `Error setting ExecutorState: ${request.executorId}`
                     );
                 }
             })

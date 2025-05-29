@@ -3,8 +3,8 @@ import { Config } from "./config";
 import { DMXCModuleInstance } from "./main";
 
 import dgram from "dgram";
-import { UmbraUdpBroadcast } from "./generated/Common/Types/UmbraServiceTypes_pb";
 import { GRPCClient } from "./grpc/grpcclient";
+import { UmbraUdpBroadcast } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
 
 export function hashPasswordDMXC(password: string): string {
     let hash = createHash("sha256");
@@ -41,24 +41,17 @@ export function startDiscovery(
     });
 
     client.on("message", (msg, rinfo) => {
-        const umbraUdpBroadcast = UmbraUdpBroadcast.deserializeBinary(msg);
-        const clientInfo = umbraUdpBroadcast.getUmbraserver()?.getClientinfo();
-        const netid = umbraUdpBroadcast
-            .getUmbraserver()
-            ?.getClientinfo()
-            ?.getNetworkid();
+        const umbraUdpBroadcast = UmbraUdpBroadcast.decode(msg);
+        const clientInfo = umbraUdpBroadcast.umbraServer?.clientInfo;
+        const netid = umbraUdpBroadcast.umbraServer?.clientInfo?.networkid;
         console.log(
-            `UDP client got message from ${rinfo.address}:${
-                rinfo.port
-            }: ${clientInfo?.getHostname()}:${clientInfo?.getClientname()}:${clientInfo?.getNetworkid()}`
+            `UDP client got message from ${rinfo.address}:${rinfo.port}: ${clientInfo?.hostname}:${clientInfo?.clientname}:${clientInfo?.networkid}`
         );
         if (netid === config.netid) {
             umbraClient = new GRPCClient(
                 rinfo.address,
-                umbraUdpBroadcast
-                    .getUmbraserver()
-                    ?.getClientinfo()
-                    ?.getUmbraport() ?? config.port,
+                umbraUdpBroadcast.umbraServer?.clientInfo?.umbraPort ??
+                    config.port,
                 config.devicename
             );
             umbraClient.login(config.netid, instance);
@@ -66,21 +59,18 @@ export function startDiscovery(
             success(umbraClient);
         } else {
             const port =
-                umbraUdpBroadcast
-                    .getUmbraserver()
-                    ?.getClientinfo()
-                    ?.getUmbraport() ?? 17475;
+                umbraUdpBroadcast.umbraServer?.clientInfo?.umbraPort ?? 17475;
             GRPCClient.clientExists(
                 rinfo.address,
                 port,
                 config.devicename,
                 (response) => {
-                    response.getRequestsList().forEach((request) => {
-                        if (request.hasTargetnetworkid()) {
-                            config.netid = request.getTargetnetworkid();
+                    response.requests.forEach((request) => {
+                        if (request.targetNetworkId) {
+                            config.netid = request.targetNetworkId;
                         }
-                        if (request.hasTargetclientname()) {
-                            config.devicename = request.getTargetclientname();
+                        if (request.targetClientName) {
+                            config.devicename = request.targetClientName;
                         }
                     });
                 }

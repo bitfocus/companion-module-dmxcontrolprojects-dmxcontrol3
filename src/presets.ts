@@ -1,7 +1,7 @@
 import { CompanionPresetDefinitions, combineRgb } from "@companion-module/base";
 import { DMXCModuleInstance } from "./main";
-import { MacroDescriptor } from "./generated/Common/Types/Macro/MacroServiceTypes_pb";
-import { ExecutorDescriptor } from "./generated/Common/Types/Executor/ExecutorServiceTypes_pb";
+import { ExecutorDescriptor } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
+import { MacroDescriptor } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
 
 export class PresetsManager {
     private macropresets: CompanionPresetDefinitions;
@@ -15,223 +15,83 @@ export class PresetsManager {
     createExecutorPresets(executorlist: ExecutorDescriptor[]) {
         this.executorpresets = {};
         for (const executor of executorlist) {
-            const name = executor.getName();
-            let button1name = executor.getButton1displayname();
-            if (!button1name) {
-                button1name = "Button 1";
+            const name = executor.name;
+            for (let i = 1; i <= 4; i++) {
+                let buttonname = "";
+                switch (i) {
+                    case 1:
+                        buttonname = executor.button1DisplayName;
+                        break;
+                    case 2:
+                        buttonname = executor.button2DisplayName;
+                        break;
+                    case 3:
+                        buttonname = executor.button3DisplayName;
+                        break;
+                    case 4:
+                        buttonname = executor.button4DisplayName;
+                        break;
+                    default:
+                        break;
+                }
+                this.executorpresets[`${executor.id}_button_${i}`] = {
+                    type: "button",
+                    category: name,
+                    name: buttonname,
+                    style: {
+                        text:
+                            buttonname.length > 0 ? buttonname : `Button ${i}`,
+                        size: "auto",
+                        color: combineRgb(255, 255, 255),
+                        bgcolor: combineRgb(0, 0, 0)
+                    },
+                    steps: [
+                        {
+                            down: [
+                                {
+                                    actionId: "press_button",
+                                    options: {
+                                        id: executor.id,
+                                        num: i,
+                                        buttonType: "executor"
+                                    }
+                                }
+                            ],
+                            up: [
+                                {
+                                    actionId: "release_button",
+                                    options: {
+                                        id: executor.id,
+                                        num: i,
+                                        buttonType: "executor"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    feedbacks: [
+                        {
+                            feedbackId: "ButtonState",
+                            options: {
+                                id: executor.id,
+                                num: i,
+                                buttonType: "executor"
+                            },
+                            style: {
+                                bgcolor: combineRgb(255, 0, 0)
+                            }
+                        }
+                    ]
+                };
             }
-            this.executorpresets[`${executor.getId()}_button_1`] = {
+            this.executorpresets[`${executor.id}_fader`] = {
                 type: "button",
                 category: name,
-                name: executor.getButton1displayname(),
+                name: executor.faderDisplayName,
                 style: {
                     text:
-                        executor.getButton1displayname().length > 0
-                            ? executor.getButton1displayname()
-                            : "Button 1",
-                    size: "auto",
-                    color: combineRgb(255, 255, 255),
-                    bgcolor: combineRgb(0, 0, 0)
-                },
-                steps: [
-                    {
-                        down: [
-                            {
-                                actionId: "press_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 1,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ],
-                        up: [
-                            {
-                                actionId: "release_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 1,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                feedbacks: [
-                    {
-                        feedbackId: "ButtonState",
-                        options: {
-                            id: executor.getId(),
-                            num: 1,
-                            buttonType: "executor"
-                        },
-                        style: {
-                            bgcolor: combineRgb(255, 0, 0)
-                        }
-                    }
-                ]
-            };
-            this.executorpresets[`${executor.getId()}_button_2`] = {
-                type: "button",
-                category: name,
-                name: executor.getButton2displayname(),
-                style: {
-                    text:
-                        executor.getButton2displayname().length > 0
-                            ? executor.getButton2displayname()
-                            : "Button 2",
-                    size: "auto",
-                    color: combineRgb(255, 255, 255),
-                    bgcolor: combineRgb(0, 0, 0)
-                },
-                steps: [
-                    {
-                        down: [
-                            {
-                                actionId: "press_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 2,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ],
-                        up: [
-                            {
-                                actionId: "release_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 2,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                feedbacks: [
-                    {
-                        feedbackId: "ButtonState",
-                        options: {
-                            id: executor.getId(),
-                            num: 2,
-                            buttonType: "executor"
-                        },
-                        style: {
-                            bgcolor: combineRgb(255, 0, 0)
-                        }
-                    }
-                ]
-            };
-            this.executorpresets[`${executor.getId()}_button_3`] = {
-                type: "button",
-                category: name,
-                name: executor.getButton3displayname(),
-                style: {
-                    text:
-                        executor.getButton3displayname().length > 0
-                            ? executor.getButton3displayname()
-                            : "Button 3",
-                    size: "auto",
-                    color: combineRgb(255, 255, 255),
-                    bgcolor: combineRgb(0, 0, 0)
-                },
-                steps: [
-                    {
-                        down: [
-                            {
-                                actionId: "press_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 3,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ],
-                        up: [
-                            {
-                                actionId: "release_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 3,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                feedbacks: [
-                    {
-                        feedbackId: "ButtonState",
-                        options: {
-                            id: executor.getId(),
-                            num: 3,
-                            buttonType: "executor"
-                        },
-                        style: {
-                            bgcolor: combineRgb(255, 0, 0)
-                        }
-                    }
-                ]
-            };
-            this.executorpresets[`${executor.getId()}_button_4`] = {
-                type: "button",
-                category: name,
-                name: executor.getButton4displayname(),
-                style: {
-                    text:
-                        executor.getButton4displayname().length > 0
-                            ? executor.getButton4displayname()
-                            : "Button 4",
-                    size: "auto",
-                    color: combineRgb(255, 255, 255),
-                    bgcolor: combineRgb(0, 0, 0)
-                },
-                steps: [
-                    {
-                        down: [
-                            {
-                                actionId: "press_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 4,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ],
-                        up: [
-                            {
-                                actionId: "release_button",
-                                options: {
-                                    id: executor.getId(),
-                                    num: 4,
-                                    buttonType: "executor"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                feedbacks: [
-                    {
-                        feedbackId: "ButtonState",
-                        options: {
-                            id: executor.getId(),
-                            num: 4,
-                            buttonType: "executor"
-                        },
-                        style: {
-                            bgcolor: combineRgb(255, 0, 0)
-                        }
-                    }
-                ]
-            };
-            this.executorpresets[`${executor.getId()}_fader`] = {
-                type: "button",
-                category: name,
-                name: executor.getFaderdisplayname(),
-                style: {
-                    text:
-                        executor.getFaderdisplayname().length > 0
-                            ? executor.getFaderdisplayname()
+                        executor.faderDisplayName.length > 0
+                            ? executor.faderDisplayName
                             : "Fader",
                     size: "auto",
                     color: combineRgb(255, 255, 255),
@@ -248,7 +108,7 @@ export class PresetsManager {
                             {
                                 actionId: "decrement_fader",
                                 options: {
-                                    id: executor.getId(),
+                                    id: executor.id,
                                     num: 1,
                                     step: 5,
                                     faderType: "executor"
@@ -259,7 +119,7 @@ export class PresetsManager {
                             {
                                 actionId: "increment_fader",
                                 options: {
-                                    id: executor.getId(),
+                                    id: executor.id,
                                     num: 1,
                                     step: 5,
                                     faderType: "executor"
@@ -272,17 +132,17 @@ export class PresetsManager {
                     {
                         feedbackId: "FaderState",
                         options: {
-                            id: executor.getId(),
+                            id: executor.id,
                             num: 1,
                             faderType: "executor"
                         }
                     }
                 ]
             };
-            this.executorpresets[`${executor.getId()}_fader_inc`] = {
+            this.executorpresets[`${executor.id}_fader_inc`] = {
                 type: "button",
                 category: name,
-                name: executor.getFaderdisplayname(),
+                name: executor.faderDisplayName,
                 style: {
                     text: "⬆️",
                     size: "auto",
@@ -295,7 +155,7 @@ export class PresetsManager {
                             {
                                 actionId: "increment_fader",
                                 options: {
-                                    id: executor.getId(),
+                                    id: executor.id,
                                     num: 1,
                                     step: 5,
                                     faderType: "executor"
@@ -309,17 +169,17 @@ export class PresetsManager {
                     {
                         feedbackId: "FaderState",
                         options: {
-                            id: executor.getId(),
+                            id: executor.id,
                             num: 1,
                             faderType: "executor"
                         }
                     }
                 ]
             };
-            this.executorpresets[`${executor.getId()}_fader_dec`] = {
+            this.executorpresets[`${executor.id}_fader_dec`] = {
                 type: "button",
                 category: name,
-                name: executor.getFaderdisplayname(),
+                name: executor.faderDisplayName,
                 style: {
                     text: "⬇️",
                     size: "auto",
@@ -332,7 +192,7 @@ export class PresetsManager {
                             {
                                 actionId: "decrement_fader",
                                 options: {
-                                    id: executor.getId(),
+                                    id: executor.id,
                                     num: 1,
                                     step: 5,
                                     faderType: "executor"
@@ -346,7 +206,7 @@ export class PresetsManager {
                     {
                         feedbackId: "FaderState",
                         options: {
-                            id: executor.getId(),
+                            id: executor.id,
                             num: 1,
                             faderType: "executor"
                         }
@@ -364,8 +224,8 @@ export class PresetsManager {
     createMacroPresets(macrolist: MacroDescriptor[]) {
         this.macropresets = {};
         for (const macro of macrolist) {
-            const macroName = macro.getName();
-            this.macropresets[`${macro.getId()}_image`] = {
+            const macroName = macro.name;
+            this.macropresets[`${macro.id}_image`] = {
                 type: "button",
                 category: macroName,
                 name: "Image",
@@ -380,20 +240,18 @@ export class PresetsManager {
                     {
                         feedbackId: "Bitmap",
                         options: {
-                            macroid: macro.getId()
+                            macroid: macro.id
                         }
                     }
                 ]
             };
-            for (const button of macro.getButtonsList()) {
-                this.macropresets[
-                    `${macro.getId()}_button_${button.getNumber()}`
-                ] = {
+            for (const button of macro.buttons) {
+                this.macropresets[`${macro.id}_button_${button.number}`] = {
                     type: "button",
                     category: macroName,
-                    name: button.getLabel(),
+                    name: button.label,
                     style: {
-                        text: button.getLabel(),
+                        text: button.label,
                         size: "auto",
                         color: combineRgb(255, 255, 255),
                         bgcolor: combineRgb(0, 0, 0)
@@ -404,8 +262,8 @@ export class PresetsManager {
                                 {
                                     actionId: "press_button",
                                     options: {
-                                        id: macro.getId(),
-                                        num: button.getNumber(),
+                                        id: macro.id,
+                                        num: button.number,
                                         buttonType: "macro"
                                     }
                                 }
@@ -414,8 +272,8 @@ export class PresetsManager {
                                 {
                                     actionId: "release_button",
                                     options: {
-                                        id: macro.getId(),
-                                        num: button.getNumber(),
+                                        id: macro.id,
+                                        num: button.number,
                                         buttonType: "macro"
                                     }
                                 }
@@ -426,8 +284,8 @@ export class PresetsManager {
                         {
                             feedbackId: "ButtonState",
                             options: {
-                                id: macro.getId(),
-                                num: button.getNumber(),
+                                id: macro.id,
+                                num: button.number,
                                 buttonType: "macro"
                             },
                             style: {
@@ -437,15 +295,13 @@ export class PresetsManager {
                     ]
                 };
             }
-            for (const fader of macro.getFadersList()) {
-                this.macropresets[
-                    `${macro.getId()}_fader_${fader.getNumber()}`
-                ] = {
+            for (const fader of macro.faders) {
+                this.macropresets[`${macro.id}_fader_${fader.number}`] = {
                     type: "button",
                     category: macroName,
-                    name: fader.getLabel(),
+                    name: fader.label,
                     style: {
-                        text: fader.getLabel(),
+                        text: fader.label,
                         size: "auto",
                         color: combineRgb(255, 255, 255),
                         bgcolor: combineRgb(0, 0, 0)
@@ -461,8 +317,8 @@ export class PresetsManager {
                                 {
                                     actionId: "decrement_fader",
                                     options: {
-                                        id: macro.getId(),
-                                        num: fader.getNumber(),
+                                        id: macro.id,
+                                        num: fader.number,
                                         step: 5,
                                         faderType: "macro"
                                     }
@@ -472,8 +328,8 @@ export class PresetsManager {
                                 {
                                     actionId: "increment_fader",
                                     options: {
-                                        id: macro.getId(),
-                                        num: fader.getNumber(),
+                                        id: macro.id,
+                                        num: fader.number,
                                         step: 5,
                                         faderType: "macro"
                                     }
@@ -485,19 +341,17 @@ export class PresetsManager {
                         {
                             feedbackId: "FaderState",
                             options: {
-                                id: macro.getId(),
-                                num: fader.getNumber(),
+                                id: macro.id,
+                                num: fader.number,
                                 faderType: "macro"
                             }
                         }
                     ]
                 };
-                this.macropresets[
-                    `${macro.getId()}_fader_${fader.getNumber()}_inc`
-                ] = {
+                this.macropresets[`${macro.id}_fader_${fader.number}_inc`] = {
                     type: "button",
                     category: macroName,
-                    name: `${fader.getLabel()} +`,
+                    name: `${fader.label} +`,
                     style: {
                         text: "⬆️",
                         size: "auto",
@@ -510,8 +364,8 @@ export class PresetsManager {
                                 {
                                     actionId: "increment_fader",
                                     options: {
-                                        id: macro.getId(),
-                                        num: fader.getNumber(),
+                                        id: macro.id,
+                                        num: fader.number,
                                         step: 5,
                                         faderType: "macro"
                                     }
@@ -522,12 +376,10 @@ export class PresetsManager {
                     ],
                     feedbacks: []
                 };
-                this.macropresets[
-                    `${macro.getId()}_fader_${fader.getNumber()}_dec`
-                ] = {
+                this.macropresets[`${macro.id}_fader_${fader.number}_dec`] = {
                     type: "button",
                     category: macroName,
-                    name: `${fader.getLabel()} -`,
+                    name: `${fader.label} -`,
                     style: {
                         text: "⬇️",
                         size: "auto",
@@ -540,8 +392,8 @@ export class PresetsManager {
                                 {
                                     actionId: "decrement_fader",
                                     options: {
-                                        id: macro.getId(),
-                                        num: fader.getNumber(),
+                                        id: macro.id,
+                                        num: fader.number,
                                         step: 5,
                                         faderType: "macro"
                                     }

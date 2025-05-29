@@ -1,11 +1,11 @@
 import { CompanionActionDefinition } from "@companion-module/base";
 import { DMXCModuleInstance } from "./main";
+import { ENullableBool } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
+import { SetExecutorValuesRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
 import {
     MacroSetButtonStateRequest,
     MacroSetFaderStateRequest
-} from "./generated/Common/Types/Macro/MacroServiceCRUDTypes_pb";
-import { SetExecutorValuesRequest } from "./generated/Common/Types/Executor/ExecutorServiceCRUDTypes_pb";
-import { ENullableBool } from "./generated/Common/Types/CommonTypes_pb";
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
 
 export enum ActionId {
     PressButton = "press_button",
@@ -62,28 +62,28 @@ export class ActionFactory {
                         let request;
                         switch (event.options.buttonType) {
                             case "macro":
-                                request = new MacroSetButtonStateRequest();
-                                request.setMacroid(event.options.id);
-                                request.setButtonnumber(event.options.num);
-                                request.setActive(true);
+                                request = MacroSetButtonStateRequest.create({
+                                    macroId: event.options.id,
+                                    buttonNumber: event.options.num,
+                                    active: true
+                                });
                                 break;
                             case "executor":
-                                request = new SetExecutorValuesRequest();
-                                request.setExecutorid(event.options.id);
+                                request = SetExecutorValuesRequest.create();
+                                request.executorId = event.options.id;
                                 switch (event.options.num) {
                                     case 1:
-                                        request.setButton1(ENullableBool.TRUE);
+                                        request.button1 = ENullableBool.True;
                                         break;
                                     case 2:
-                                        request.setButton2(ENullableBool.TRUE);
+                                        request.button2 = ENullableBool.True;
                                         break;
                                     case 3:
-                                        request.setButton3(ENullableBool.TRUE);
+                                        request.button3 = ENullableBool.True;
                                         break;
                                     case 4:
-                                        request.setButton4(ENullableBool.TRUE);
+                                        request.button4 = ENullableBool.True;
                                         break;
-
                                     default:
                                         break;
                                 }
@@ -132,28 +132,28 @@ export class ActionFactory {
                         let request;
                         switch (event.options.buttonType) {
                             case "macro":
-                                request = new MacroSetButtonStateRequest();
-                                request.setMacroid(event.options.id);
-                                request.setButtonnumber(event.options.num);
-                                request.setActive(false);
+                                request = MacroSetButtonStateRequest.create({
+                                    macroId: event.options.id,
+                                    buttonNumber: event.options.num,
+                                    active: false
+                                });
                                 break;
                             case "executor":
-                                request = new SetExecutorValuesRequest();
-                                request.setExecutorid(event.options.id);
+                                request = SetExecutorValuesRequest.create();
+                                request.executorId = event.options.id;
                                 switch (event.options.num) {
                                     case 1:
-                                        request.setButton1(ENullableBool.FALSE);
+                                        request.button1 = ENullableBool.False;
                                         break;
                                     case 2:
-                                        request.setButton2(ENullableBool.FALSE);
+                                        request.button2 = ENullableBool.False;
                                         break;
                                     case 3:
-                                        request.setButton3(ENullableBool.FALSE);
+                                        request.button3 = ENullableBool.False;
                                         break;
                                     case 4:
-                                        request.setButton4(ENullableBool.FALSE);
+                                        request.button4 = ENullableBool.False;
                                         break;
-
                                     default:
                                         break;
                                 }
@@ -212,18 +212,17 @@ export class ActionFactory {
 
                         switch (event.options.faderType) {
                             case "macro":
-                                request = new MacroSetFaderStateRequest();
-                                request.setMacroid(event.options.id);
-                                request.setIncrement(event.options.step / 100);
-                                request.setFadernumber(event.options.num);
+                                request = MacroSetFaderStateRequest.create({
+                                    macroId: event.options.id,
+                                    increment: event.options.step / 100,
+                                    faderNumber: event.options.num
+                                });
                                 break;
                             case "executor":
-                                request = new SetExecutorValuesRequest();
-                                request.setExecutorid(event.options.id);
-                                request.setFaderincrement(
-                                    event.options.step / 100
-                                );
-                                request.setFaderset(true);
+                                request = SetExecutorValuesRequest.create({
+                                    executorId: event.options.id,
+                                    faderIncrement: event.options.step / 100
+                                });
                                 break;
                         }
 
@@ -278,18 +277,17 @@ export class ActionFactory {
 
                         switch (event.options.faderType) {
                             case "macro":
-                                request = new MacroSetFaderStateRequest();
-                                request.setMacroid(event.options.id);
-                                request.setIncrement(-event.options.step / 100);
-                                request.setFadernumber(event.options.num);
+                                request = MacroSetFaderStateRequest.create({
+                                    macroId: event.options.id,
+                                    increment: -event.options.step / 100,
+                                    faderNumber: event.options.num
+                                });
                                 break;
                             case "executor":
-                                request = new SetExecutorValuesRequest();
-                                request.setExecutorid(event.options.id);
-                                request.setFaderincrement(
-                                    -event.options.step / 100
-                                );
-                                request.setFaderset(true);
+                                request = SetExecutorValuesRequest.create({
+                                    executorId: event.options.id,
+                                    faderIncrement: -event.options.step / 100
+                                });
                                 break;
                         }
 
@@ -345,18 +343,17 @@ export class ActionFactory {
 
                         switch (event.options.faderType) {
                             case "macro":
-                                request = new MacroSetFaderStateRequest();
-                                request.setMacroid(event.options.id);
-                                request.setAbsolut(event.options.value / 100);
-                                request.setFadernumber(event.options.num);
+                                request = MacroSetFaderStateRequest.create({
+                                    macroId: event.options.id,
+                                    absolut: event.options.value / 100,
+                                    faderNumber: event.options.num
+                                });
                                 break;
                             case "executor":
-                                request = new SetExecutorValuesRequest();
-                                request.setExecutorid(event.options.id);
-                                request.setFaderabsolut(
-                                    event.options.value / 100
-                                );
-                                request.setFaderset(true);
+                                request = SetExecutorValuesRequest.create({
+                                    executorId: event.options.id,
+                                    faderAbsolut: event.options.value / 100
+                                });
                                 break;
                         }
 
