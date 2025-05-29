@@ -291,6 +291,14 @@ export class PresetsManager {
                             style: {
                                 bgcolor: combineRgb(255, 0, 0)
                             }
+                        },
+                        {
+                            feedbackId: "ButtonName",
+                            options: {
+                                id: macro.name,
+                                num: button.number,
+                                buttonType: "macro"
+                            }
                         }
                     ]
                 };

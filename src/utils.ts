@@ -29,7 +29,8 @@ export function loggedMethod<T>(original: (r: T) => void) {
 export function startDiscovery(
     config: Config,
     instance: DMXCModuleInstance,
-    success: (client: GRPCClient, config: Config) => void
+    success: (client: GRPCClient, config: Config) => void,
+    errorclose: () => void
 ): void {
     const client = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
@@ -56,7 +57,7 @@ export function startDiscovery(
                 config.devicename,
                 instance
             );
-            umbraClient.login(config.netid, instance);
+            umbraClient.login(config.netid, instance, errorclose, errorclose);
             client.close();
             success(umbraClient, config);
         } else {

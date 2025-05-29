@@ -65,6 +65,77 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                 return false;
             }
         },
+        ButtonName: {
+            name: "Button Name",
+            type: "advanced",
+            description: "Button Name",
+            options: [
+                {
+                    id: "num",
+                    type: "number",
+                    label: "ButtonNumber",
+                    default: 1,
+                    min: 1,
+                    max: 100
+                },
+                {
+                    id: "id",
+                    type: "textinput",
+                    label: "ID"
+                },
+                {
+                    id: "buttonType",
+                    type: "dropdown",
+                    label: "Select Buttontype",
+                    choices: [
+                        { id: "macro", label: "Macro" },
+                        { id: "executor", label: "Executor" }
+                    ],
+                    default: "macro"
+                }
+            ],
+            callback: (feedback) => {
+                if (
+                    typeof feedback.options.id === "string" &&
+                    typeof feedback.options.num === "number"
+                ) {
+                    let buttonName = "";
+
+                    switch (feedback.options.buttonType) {
+                        case "macro":
+                            buttonName =
+                                (
+                                    self.repositories?.get(
+                                        "MacroRepository"
+                                    ) as MacroRepository
+                                ).getSingle(feedback.options.id)?.buttons[
+                                    feedback.options.num - 1
+                                ].label ?? `Button ${feedback.options.num}`;
+                            break;
+                        case "executor":
+                            buttonName =
+                                (
+                                    self.repositories?.get(
+                                        "ExecutorRepository"
+                                    ) as ExecutorRepository
+                                ).getSingle(feedback.options.id)?.buttons[
+                                    feedback.options.num - 1
+                                ].label ?? `Button ${feedback.options.num}`;
+                            break;
+                    }
+
+                    return {
+                        text: `${buttonName}`,
+                        style: { color: combineRgb(255, 255, 255) }
+                    };
+                }
+
+                return {
+                    text: "Button",
+                    style: { color: combineRgb(255, 255, 255) }
+                };
+            }
+        },
         FaderState: {
             name: "Fader State",
             type: "advanced",

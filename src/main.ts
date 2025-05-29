@@ -54,15 +54,50 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
                 config.devicename,
                 this
             );
-            this.UmbraClient.login(config.netid, this);
+            this.UmbraClient.login(
+                config.netid,
+                this,
+                () => {
+                    this.updateStatus(InstanceStatus.Disconnected);
+                },
+                () => {
+                    this.updateStatus(InstanceStatus.ConnectionFailure);
+                }
+            );
         } else {
-            startDiscovery(config, this, (client, config) => {
+            startDiscovery(
+                config,
+                this,
+                (client, config) => {
                 this.UmbraClient = client;
                 this.saveConfig(config);
-            });
+            }
+                () => {
+                    this.errorhandler();
+                }
+            );
         }
 
         return Promise.resolve();
+    }
+
+    errorhandler(): void {
+        this.updateStatus(InstanceStatus.Disconnected);
+        if (this.UmbraClient) {
+            this.UmbraClient.destroy(this);
+        }
+        if (this.config) {
+            startDiscovery(
+                this.config,
+                this,
+                (client) => {
+                    this.UmbraClient = client;
+                },
+                () => {
+                    this.errorhandler();
+                }
+            );
+        }
     }
 
     async destroy(): Promise<void> {

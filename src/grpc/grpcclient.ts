@@ -126,23 +126,34 @@ export class GRPCClient {
             GRPC.credentials.createInsecure()
         );
         client.informClientExists(
-            InformClientExistsRequest.create({
-                info: this.getClientProgramInfo(devicename, runtimeid)
-            }),
-            loggedMethod((response) => {
+            InformClientExistsRequest.create({info:this.getClientProgramInfo(devicename, runtimeid)}),
+            (error, response) => {
+                if (error) {
+                    console.error(error);
+                    return;
+                }
                 callback(response);
                 client.close();
-            })
+            }
         );
     }
 
-    public login(netid: string, instance: DMXCModuleInstance) {
+    public login(
+        netid: string,
+        instance: DMXCModuleInstance,
+        onClose: () => void,
+        onError: () => void
+    ) {
         if (this.clientProgramInfo.clientInfo) {
             this.clientProgramInfo.clientInfo.networkid = netid;
         }
         this.umbraClient.login(
-            UmbraLoginRequest.create({ client: this.clientProgramInfo }),
-            loggedMethod((response) => {
+            UmbraLoginRequest.create({client: this.clientProgramInfo}),
+            (error, response) => {
+                if (error) {
+                    onError();
+                    return;
+                }
                 this.metadata = new GRPC.Metadata();
                 this.metadata.add("SessionID", response.sessionId);
                 this.connectedClient = new ConnectedClientServiceClient(
@@ -154,14 +165,19 @@ export class GRPCClient {
                         state: ReadyToWorkState.create({ readyToWork: true })
                     }),
                     this.metadata,
-                    loggedMethod((response) => {
+                    (error, response) => {
+                        if (error) {
+                            onError();
+                            return;
+                        }
                         if (response.ok)
                             instance.updateStatus(InstanceStatus.Ok);
-                    })
+                    }
                 );
                 const stream = this.connectedClient.ping(this.metadata);
                 stream.on("error", (err) => {
                     instance.log("error", err.message);
+                    onError();
                 });
                 stream.on("data", (data: PingPong) => {
                     instance.log(
@@ -171,6 +187,7 @@ export class GRPCClient {
                 });
                 stream.on("end", () => {
                     instance.log("debug", "stream end");
+                    onClose();
                 });
                 this.interval = setInterval(
                     () => stream.write(PingPong.create()),
@@ -188,30 +205,43 @@ export class GRPCClient {
                         )
                     }),
                     this.metadata,
-                    loggedMethod((_) => {
-                        if (!this.metadata) {
-                            console.error("Metadata not set");
+                    (error, _) => {
+                        if (error) {
+                            instance.log("error", error.message);
+                            onError();
                             return;
                         }
-                        this.clients.set(
-                            "Macro",
-                            new MacroClient(
-                                this.endpoint,
-                                this.metadata,
-                                instance
-                            )
-                        );
-                        this.clients.set(
-                            "Executor",
-                            new ExecutorClient(
-                                this.endpoint,
-                                this.metadata,
-                                instance
-                            )
-                        );
-                    })
+                        if (!this.metadata) {
+                            instance.log("error", "Metadata not set");
+                            return;
+                        }
+                        try {
+                            this.clients.set(
+                                "Macro",
+                                new MacroClient(
+                                    this.endpoint,
+                                    this.metadata,
+                                    instance
+                                )
+                            );
+                            this.clients.set(
+                                "Executor",
+                                new ExecutorClient(
+                                    this.endpoint,
+                                    this.metadata,
+                                    instance
+                                )
+                            );
+                        } catch {
+                            instance.log(
+                                "error",
+                                "Something died while retrieving changes!"
+                            );
+                            onError();
+                        }
+                    }
                 );
-            })
+            }
         );
     }
 
@@ -268,10 +298,14 @@ export class GRPCClient {
         clearInterval(this.interval);
         this.umbraClient.logoff(
             UmbraLogoffRequest.create({ client: this.clientProgramInfo }),
-            loggedMethod((response) => {
-                instance.log("debug", response.bye);
+            (error, response) => {
+                if (error) {
+                    instance.log("error", error.message);
+                    return;
+                }
+                instance.log("debug", response.toString());
                 this.umbraClient.close();
-            })
+            }
         );
     }
 }
