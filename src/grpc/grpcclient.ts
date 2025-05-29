@@ -126,7 +126,9 @@ export class GRPCClient {
             GRPC.credentials.createInsecure()
         );
         client.informClientExists(
-            InformClientExistsRequest.create({info:this.getClientProgramInfo(devicename, runtimeid)}),
+            InformClientExistsRequest.create({
+                info: this.getClientProgramInfo(devicename, runtimeid)
+            }),
             (error, response) => {
                 if (error) {
                     console.error(error);
@@ -148,7 +150,7 @@ export class GRPCClient {
             this.clientProgramInfo.clientInfo.networkid = netid;
         }
         this.umbraClient.login(
-            UmbraLoginRequest.create({client: this.clientProgramInfo}),
+            UmbraLoginRequest.create({ client: this.clientProgramInfo }),
             (error, response) => {
                 if (error) {
                     onError();

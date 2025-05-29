@@ -69,9 +69,9 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
                 config,
                 this,
                 (client, config) => {
-                this.UmbraClient = client;
-                this.saveConfig(config);
-            }
+                    this.UmbraClient = client;
+                    this.saveConfig(config);
+                },
                 () => {
                     this.errorhandler();
                 }
