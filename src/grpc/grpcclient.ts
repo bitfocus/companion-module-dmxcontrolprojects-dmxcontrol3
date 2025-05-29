@@ -3,7 +3,7 @@ import * as OS from "os";
 
 import { DMXCModuleInstance } from "../main";
 import { InstanceStatus } from "@companion-module/base";
-import { hashPasswordDMXC, loggedMethod } from "../utils";
+import { hashPasswordDMXC } from "../utils";
 import { MacroClient } from "./macroclient";
 import { ExecutorClient } from "./executorclient";
 import {
