@@ -25,7 +25,7 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                 {
                     id: "id",
                     type: "textinput",
-                    label: "ID"
+                    label: "ID or Name"
                 },
                 {
                     id: "buttonType",
@@ -81,7 +81,7 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                 {
                     id: "id",
                     type: "textinput",
-                    label: "ID"
+                    label: "ID or Name"
                 },
                 {
                     id: "buttonType",
@@ -152,7 +152,7 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                 {
                     id: "id",
                     type: "textinput",
-                    label: "ID"
+                    label: "ID or Name"
                 },
                 {
                     id: "faderType",
@@ -214,7 +214,7 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                 {
                     id: "macroid",
                     type: "textinput",
-                    label: "Macro ID"
+                    label: "Macro ID or Name"
                 }
             ],
             callback: (feedback) => {

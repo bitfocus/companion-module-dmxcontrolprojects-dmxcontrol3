@@ -41,7 +41,7 @@ export class ActionFactory {
                     {
                         id: "id",
                         type: "textinput",
-                        label: "ID"
+                        label: "ID or Name"
                     },
                     {
                         id: "buttonType",
@@ -111,7 +111,7 @@ export class ActionFactory {
                     {
                         id: "id",
                         type: "textinput",
-                        label: "ID"
+                        label: "ID or Name"
                     },
                     {
                         id: "buttonType",
@@ -189,7 +189,7 @@ export class ActionFactory {
                     {
                         id: "id",
                         type: "textinput",
-                        label: "ID"
+                        label: "ID or Name"
                     },
                     {
                         id: "faderType",
@@ -255,7 +255,7 @@ export class ActionFactory {
                     {
                         id: "id",
                         type: "textinput",
-                        label: "ID"
+                        label: "ID or Name"
                     },
                     {
                         id: "faderType",
@@ -320,7 +320,7 @@ export class ActionFactory {
                     {
                         id: "id",
                         type: "textinput",
-                        label: "ID"
+                        label: "ID or Name"
                     },
                     {
                         id: "faderType",

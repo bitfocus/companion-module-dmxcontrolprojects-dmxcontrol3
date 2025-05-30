@@ -286,10 +286,18 @@ export class GRPCClient {
             client.sendButtonState(request as MacroSetButtonStateRequest);
         }
         if ("executorId" in request) {
+            this.instance.log(
+                "debug",
+                `Sending ExecutorState for Executor: ${request.executorId}`
+            );
             request.executorId =
                 this.instance.repositories
-                    ?.get("MacroRepository")
+                    ?.get("ExecutorRepository")
                     ?.getSingle(request.executorId)?.ID ?? request.executorId;
+            this.instance.log(
+                "debug",
+                `ExecutorState for Executor: ${request.executorId}`
+            );
             const client = this.clients.get("Executor") as ExecutorClient;
             client.sendExecutorState(request as SetExecutorValuesRequest);
         }
