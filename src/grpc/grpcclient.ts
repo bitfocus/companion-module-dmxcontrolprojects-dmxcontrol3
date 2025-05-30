@@ -312,7 +312,9 @@ export class GRPCClient {
 
     public destroy(instance: DMXCModuleInstance, after: () => void): void {
         this.connectedClient?.close();
-        this.clients.forEach((val, _) => { val.close(); });
+        this.clients.forEach((val, _) => {
+            val.close();
+        });
         clearInterval(this.interval);
         this.umbraClient.logoff(
             UmbraLogoffRequest.create({

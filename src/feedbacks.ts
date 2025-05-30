@@ -172,10 +172,7 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                 ) {
                     switch (feedback.options.faderType) {
                         case "macro":
-                            self.log(
-                                "debug",
-                                JSON.stringify(feedback.options)
-                            );
+                            self.log("debug", JSON.stringify(feedback.options));
                             return {
                                 text: (
                                     self.repositories?.get(
@@ -191,10 +188,8 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                                 text: (
                                     self.repositories?.get(
                                         "ExecutorRepository"
-                                    ) as MacroRepository
-                                ).getSingle(feedback.options.id)?.faders[
-                                    feedback.options.num - 1
-                                ].label,
+                                    ) as ExecutorRepository
+                                ).getSingle(feedback.options.id)?.fader.label,
                                 style: { color: combineRgb(255, 255, 255) }
                             };
                     }
