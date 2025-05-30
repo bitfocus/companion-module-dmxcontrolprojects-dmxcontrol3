@@ -24,9 +24,7 @@ export class ActionFactory {
     }
 
     private addDefaultActions(): void {
-        const actions: {
-            [id in ActionId]: CompanionActionDefinition | undefined;
-        } = {
+        const actions: Record<ActionId, CompanionActionDefinition | undefined> = {
             [ActionId.PressButton]: {
                 name: "Press Button",
                 options: [

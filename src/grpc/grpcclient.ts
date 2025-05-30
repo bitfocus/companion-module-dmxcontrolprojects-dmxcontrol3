@@ -264,7 +264,7 @@ export class GRPCClient {
                     ?.get("MacroRepository")
                     ?.getSingle(request.macroId)?.ID ?? request.macroId;
             const client = this.clients.get("Macro") as MacroClient;
-            client.sendFaderState(request as MacroSetFaderStateRequest);
+            client.sendFaderState(request);
         }
         if ("executorId" in request) {
             request.executorId =
@@ -272,7 +272,7 @@ export class GRPCClient {
                     ?.get("ExecutorRepository")
                     ?.getSingle(request.executorId)?.ID ?? request.executorId;
             const client = this.clients.get("Executor") as ExecutorClient;
-            client.sendExecutorState(request as SetExecutorValuesRequest);
+            client.sendExecutorState(request);
         }
     }
 
@@ -286,7 +286,7 @@ export class GRPCClient {
                     ?.get("MacroRepository")
                     ?.getSingle(request.macroId)?.ID ?? request.macroId;
             const client = this.clients.get("Macro") as MacroClient;
-            client.sendButtonState(request as MacroSetButtonStateRequest);
+            client.sendButtonState(request);
         }
         if ("executorId" in request) {
             this.instance.log(
@@ -302,7 +302,7 @@ export class GRPCClient {
                 `ExecutorState for Executor: ${request.executorId}`
             );
             const client = this.clients.get("Executor") as ExecutorClient;
-            client.sendExecutorState(request as SetExecutorValuesRequest);
+            client.sendExecutorState(request);
         }
     }
 
@@ -312,7 +312,7 @@ export class GRPCClient {
 
     public destroy(instance: DMXCModuleInstance, after: () => void): void {
         this.connectedClient?.close();
-        this.clients.forEach((val, _) => val.close());
+        this.clients.forEach((val, _) => { val.close(); });
         clearInterval(this.interval);
         this.umbraClient.logoff(
             UmbraLogoffRequest.create({

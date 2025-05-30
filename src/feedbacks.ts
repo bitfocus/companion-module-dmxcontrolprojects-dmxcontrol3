@@ -125,7 +125,7 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                     }
 
                     return {
-                        text: `${buttonName}`,
+                        text: buttonName,
                         style: { color: combineRgb(255, 255, 255) }
                     };
                 }
@@ -174,7 +174,7 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                         case "macro":
                             self.log(
                                 "debug",
-                                `${JSON.stringify(feedback.options)}`
+                                JSON.stringify(feedback.options)
                             );
                             return {
                                 text: (

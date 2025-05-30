@@ -29,7 +29,7 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 
     public presets?: PresetsManager;
 
-    public runtimeid: string = "";
+    public runtimeid = "";
 
     public socket: dgram.Socket | undefined;
 
