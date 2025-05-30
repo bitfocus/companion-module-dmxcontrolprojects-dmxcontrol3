@@ -40,15 +40,15 @@ export class MacroClient {
                     return;
                 }
                 response.macros.forEach((macro) => {
-            this.repo.addMacro(macro);
-        });
-        this.instance.presets?.createMacroPresets(this.repo.getAll());
-        this.instance.checkFeedbacks(
-            "ButtonState",
-            "ButtonName",
-            "FaderState",
-            "Bitmap"
-        );
+                    this.repo.addMacro(macro);
+                });
+                this.instance.presets?.createMacroPresets(this.repo.getAll());
+                this.instance.checkFeedbacks(
+                    "ButtonState",
+                    "ButtonName",
+                    "FaderState",
+                    "Bitmap"
+                );
             }
         );
         this.mclient
@@ -58,31 +58,36 @@ export class MacroClient {
                     "debug",
                     `MacroClient received change for macro: ${JSON.stringify(response.macroData)}`
                 );
-                switch(response.changeType){
+                switch (response.changeType) {
                     case EChangeType.Added:
                         if (response.macroData) {
                             this.repo.addMacro(response.macroData);
-                            this.instance.presets?.createMacroPresets(this.repo.getAll());
+                            this.instance.presets?.createMacroPresets(
+                                this.repo.getAll()
+                            );
                         }
                         break;
                     case EChangeType.Changed:
                         if (response.macroData) {
-                        this.repo.updateMacro(response.macroData);
+                            this.repo.updateMacro(response.macroData);
                         }
                         break;
                     case EChangeType.Removed:
                         if (response.macroData) {
                             this.repo.remove(response.macroData.id);
-                            this.instance.presets?.createMacroPresets(this.repo.getAll());
+                            this.instance.presets?.createMacroPresets(
+                                this.repo.getAll()
+                            );
                         }
                         break;
                 }
                 this.instance.checkFeedbacks(
-                "ButtonState",
-                "ButtonName",
-                "FaderState",
-                "Bitmap"
-            );
+                    "ButtonState",
+                    "ButtonName",
+                    "FaderName",
+                    "FaderState",
+                    "Bitmap"
+                );
             })
             .on("error", (err) => {
                 instance.log("error", err.message);
@@ -95,6 +100,7 @@ export class MacroClient {
             this.instance.checkFeedbacks(
                 "ButtonState",
                 "ButtonName",
+                "FaderName",
                 "FaderState",
                 "Bitmap"
             );

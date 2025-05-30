@@ -136,6 +136,72 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                 };
             }
         },
+        FaderName: {
+            name: "Fader Name",
+            type: "advanced",
+            description: "Fader Name",
+            options: [
+                {
+                    id: "num",
+                    type: "number",
+                    label: "FaderNumber",
+                    default: 1,
+                    min: 1,
+                    max: 100
+                },
+                {
+                    id: "id",
+                    type: "textinput",
+                    label: "ID or Name"
+                },
+                {
+                    id: "faderType",
+                    type: "dropdown",
+                    label: "Select Fadertype",
+                    choices: [
+                        { id: "macro", label: "Macro" },
+                        { id: "executor", label: "Executor" }
+                    ],
+                    default: "macro"
+                }
+            ],
+            callback: (feedback) => {
+                if (
+                    typeof feedback.options.id === "string" &&
+                    typeof feedback.options.num === "number"
+                ) {
+                    switch (feedback.options.faderType) {
+                        case "macro":
+                            self.log("debug", `${JSON.stringify(feedback.options)}`);
+                            return {
+                                text: (
+                                    self.repositories?.get(
+                                        "MacroRepository"
+                                    ) as MacroRepository
+                                ).getSingle(feedback.options.id)?.faders[
+                                    feedback.options.num - 1
+                                ].label,
+                                style: { color: combineRgb(255, 255, 255) }
+                            };
+                        case "executor":
+                            return {
+                                text: (
+                                    self.repositories?.get(
+                                        "ExecutorRepository"
+                                    ) as MacroRepository
+                                ).getSingle(feedback.options.id)?.faders[
+                                    feedback.options.num - 1
+                                ].label,
+                                style: { color: combineRgb(255, 255, 255) }
+                            };
+                    }
+                }
+                return {
+                    text: `Fader ${feedback.options.num}`,
+                    style: { color: combineRgb(255, 255, 255) }
+                };
+            }
+        },
         FaderState: {
             name: "Fader State",
             type: "advanced",

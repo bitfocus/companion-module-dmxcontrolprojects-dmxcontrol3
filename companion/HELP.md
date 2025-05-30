@@ -2,10 +2,8 @@
 
 This module is designed to control DMXControl version 3.3.0.  
 It enables seamless integration between Companion and DMXControl, allowing you to trigger macros, control executors, and monitor feedback directly from your Companion interface.
-  
+
 [Learn more about DMXControl on the official homepage.](https://www.dmxcontrol.de/)
-
-
 
 ## Configuration
 

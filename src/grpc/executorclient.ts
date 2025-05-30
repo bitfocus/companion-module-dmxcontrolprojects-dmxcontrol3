@@ -47,7 +47,8 @@ export class ExecutorClient {
                 this.instance.checkFeedbacks(
                     "ButtonState",
                     "ButtonName",
-                    "FaderState"
+                    "FaderState",
+                    "FaderName"
                 );
             }
         );
@@ -81,7 +82,8 @@ export class ExecutorClient {
                 this.instance.checkFeedbacks(
                     "ButtonState",
                     "ButtonName",
-                    "FaderState"
+                    "FaderState",
+                    "FaderName"
                 );
             })
             .on("error", (error) => {
