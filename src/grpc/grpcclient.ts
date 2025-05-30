@@ -81,7 +81,8 @@ export class GRPCClient {
 
     public static getClientProgramInfo(
         deviceName: string,
-        runtimeid: string
+        runtimeid: string,
+        timestamp: number = new Date().valueOf()
     ): ClientProgramInfo {
         const clientProgramInfo = ClientProgramInfo.create();
 
@@ -110,6 +111,8 @@ export class GRPCClient {
 
         clientProgramInfo.clientInfo = clientInfo;
         clientProgramInfo.programInfo = programInfo;
+
+        clientProgramInfo.clientTimestampUTC = timestamp;
 
         return clientProgramInfo;
     }
@@ -148,6 +151,7 @@ export class GRPCClient {
     ) {
         if (this.clientProgramInfo.clientInfo) {
             this.clientProgramInfo.clientInfo.networkid = netid;
+            this.clientProgramInfo.clientTimestampUTC = new Date().valueOf();
         }
         this.umbraClient.login(
             UmbraLoginRequest.create({ client: this.clientProgramInfo }),
@@ -295,7 +299,7 @@ export class GRPCClient {
         return this.metadata;
     }
 
-    public destroy(instance: DMXCModuleInstance): void {
+    public destroy(instance: DMXCModuleInstance, after: () => void): void {
         this.connectedClient?.close();
         clearInterval(this.interval);
         this.umbraClient.logoff(
@@ -305,8 +309,9 @@ export class GRPCClient {
                     instance.log("error", error.message);
                     return;
                 }
-                instance.log("debug", response.toString());
+                instance.log("debug", response.bye);
                 this.umbraClient.close();
+                after();
             }
         );
     }

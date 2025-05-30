@@ -4,12 +4,12 @@ import { ExecutorRepository } from "../dmxcstate/executor/executorrepository";
 import { loggedMethod } from "../utils";
 import { ExecutorClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
 import {
+    EChangeType,
     GetMultipleRequest,
     GetRequest
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
 import {
     ExecutorChangedMessage,
-    GetExecutorsResponse,
     SetExecutorValuesRequest
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
 
@@ -38,36 +38,55 @@ export class ExecutorClient {
                     instance.log("error", error.message);
                     return;
                 }
-                this.getExecutorHandler(response);
+                response.executors.forEach((executor) => {
+                    this.repo.addExecutor(executor);
+                });
+                this.instance.presets?.createExecutorPresets(
+                    this.repo.getAll()
+                );
+                this.instance.checkFeedbacks(
+                    "ButtonState",
+                    "ButtonName",
+                    "FaderState"
+                );
             }
         );
         this.eclient
             .receiveExecutorChanges(GetRequest.create(), this.metadata)
             .on("data", (response: ExecutorChangedMessage) => {
-                this.executorChangeHandler(response);
+                this.instance.log(
+                    "debug",
+                    `ExecutorClient received change for executor: ${JSON.stringify(response.executorData)}`
+                );
+                switch (response.changeType) {
+                    case EChangeType.Added:
+                        if (response.executorData)
+                            this.repo.addExecutor(response.executorData);
+                        this.instance.presets?.createExecutorPresets(
+                            this.repo.getAll()
+                        );
+                        break;
+                    case EChangeType.Changed:
+                        if (response.executorData)
+                            this.repo.updateExecutor(response.executorData);
+                        break;
+                    case EChangeType.Removed:
+                        if (response.executorData)
+                            this.repo.remove(response.executorData.id);
+                        this.instance.presets?.createExecutorPresets(
+                            this.repo.getAll()
+                        );
+                        break;
+                }
+                this.instance.checkFeedbacks(
+                    "ButtonState",
+                    "ButtonName",
+                    "FaderState"
+                );
             })
             .on("error", (error) => {
                 instance.log("error", error.message);
             });
-    }
-
-    getExecutorHandler(response: GetExecutorsResponse): void {
-        response.executors.forEach((executor) => {
-            this.repo.addExecutor(executor);
-        });
-        this.instance.presets?.createExecutorPresets(response.executors);
-    }
-
-    executorChangeHandler(response: ExecutorChangedMessage) {
-        const executor = response.executorData;
-        if (executor) {
-            this.repo.updateExecutor(executor);
-            this.instance.checkFeedbacks(
-                "ButtonState",
-                "ButtonName",
-                "FaderState"
-            );
-        }
     }
 
     sendExecutorState(request: SetExecutorValuesRequest) {

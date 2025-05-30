@@ -4,12 +4,12 @@ import { DMXCModuleInstance } from "../main";
 import { loggedMethod } from "../utils";
 import { MacroRepository } from "../dmxcstate/macro/macrorepository";
 import {
+    EChangeType,
     GetMultipleRequest,
     GetRequest
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
 import {
     MacroChangedMessage,
-    GetMacrosResponse,
     MacroSetFaderStateRequest,
     MacroSetButtonStateRequest
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
@@ -39,30 +39,59 @@ export class MacroClient {
                     instance.log("error", error.message);
                     return;
                 }
-                this.getMacroHandler(response);
+                response.macros.forEach((macro) => {
+            this.repo.addMacro(macro);
+        });
+        this.instance.presets?.createMacroPresets(this.repo.getAll());
+        this.instance.checkFeedbacks(
+            "ButtonState",
+            "ButtonName",
+            "FaderState",
+            "Bitmap"
+        );
             }
         );
         this.mclient
             .receiveMacroChanges(GetRequest.create(), this.metadata)
             .on("data", (response: MacroChangedMessage) => {
-                this.macroChangeHandler(response);
+                this.instance.log(
+                    "debug",
+                    `MacroClient received change for macro: ${JSON.stringify(response.macroData)}`
+                );
+                switch(response.changeType){
+                    case EChangeType.Added:
+                        if (response.macroData) {
+                            this.repo.addMacro(response.macroData);
+                            this.instance.presets?.createMacroPresets(this.repo.getAll());
+                        }
+                        break;
+                    case EChangeType.Changed:
+                        if (response.macroData) {
+                        this.repo.updateMacro(response.macroData);
+                        }
+                        break;
+                    case EChangeType.Removed:
+                        if (response.macroData) {
+                            this.repo.remove(response.macroData.id);
+                            this.instance.presets?.createMacroPresets(this.repo.getAll());
+                        }
+                        break;
+                }
+                this.instance.checkFeedbacks(
+                "ButtonState",
+                "ButtonName",
+                "FaderState",
+                "Bitmap"
+            );
             })
             .on("error", (err) => {
                 instance.log("error", err.message);
             });
     }
 
-    getMacroHandler(response: GetMacrosResponse): void {
-        response.macros.forEach((macro) => {
-            this.repo.addMacro(macro);
-        });
-        this.instance.presets?.createMacroPresets(response.macros);
-    }
-
     macroChangeHandler(response: MacroChangedMessage) {
         const macro = response.macroData;
         if (macro) {
-            this.repo.updateMacro(macro);
             this.instance.checkFeedbacks(
                 "ButtonState",
                 "ButtonName",

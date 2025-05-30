@@ -31,7 +31,7 @@ export function startDiscovery(
     instance: DMXCModuleInstance,
     success: (client: GRPCClient, config: Config) => void,
     errorclose: () => void
-): void {
+): dgram.Socket {
     const client = dgram.createSocket({ type: "udp4", reuseAddr: true });
 
     let umbraClient;
@@ -85,4 +85,6 @@ export function startDiscovery(
     client.bind({ address: "0.0.0.0", port: 17474, exclusive: false }, () => {
         client.addMembership("225.68.67.3");
     });
+
+    return client;
 }

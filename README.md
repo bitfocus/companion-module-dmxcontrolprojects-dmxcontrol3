@@ -2,7 +2,7 @@
 
 This repository provides a Bitfocus Companion module for [DMXControl 3](https://dmxcontrol.de/), a free lighting control software. This module enables integration of DMXControl 3 functionality with Bitfocus Companion, allowing remote control of executers and macros.
 
-> Note: This module only supports DMXControl 3 versions 3.3 and above! Currently available as a Release Candidate.
+> Note: This module only supports DMXControl 3 versions 3.3 and above!
 
 ## Installation and Build
 

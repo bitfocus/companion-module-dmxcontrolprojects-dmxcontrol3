@@ -14,6 +14,7 @@ import { MacroRepository } from "./dmxcstate/macro/macrorepository";
 import { PresetsManager } from "./presets";
 import { ExecutorRepository } from "./dmxcstate/executor/executorrepository";
 import { randomUUID } from "crypto";
+import dgram from "dgram";
 
 type DMXCRepository = MacroRepository | ExecutorRepository;
 
@@ -29,6 +30,8 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
     public presets?: PresetsManager;
 
     public runtimeid: string = "";
+
+    public socket: dgram.Socket | undefined;
 
     async init(config: Config) {
         this.config = config;
@@ -65,7 +68,7 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
                 }
             );
         } else {
-            startDiscovery(
+            this.socket = startDiscovery(
                 config,
                 this,
                 (client, config) => {
@@ -84,29 +87,86 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
     errorhandler(): void {
         this.updateStatus(InstanceStatus.Disconnected);
         if (this.UmbraClient) {
-            this.UmbraClient.destroy(this);
-        }
-        if (this.config) {
-            startDiscovery(
-                this.config,
-                this,
-                (client) => {
-                    this.UmbraClient = client;
-                },
-                () => {
-                    this.errorhandler();
+            this.UmbraClient.destroy(this, () => {
+                if (this.config) {
+                    this.socket = startDiscovery(
+                        this.config,
+                        this,
+                        (client) => {
+                            this.UmbraClient = client;
+                        },
+                        () => {
+                            this.errorhandler();
+                        }
+                    );
                 }
-            );
+            });
         }
     }
 
     async destroy(): Promise<void> {
         this.log("debug", "destroy");
-        this.UmbraClient?.destroy(this);
-        return Promise.resolve();
+        this.UmbraClient?.destroy(this, () => {
+            return Promise.resolve();
+        });
     }
 
     async configUpdated(config: Config): Promise<void> {
+        if (this.config?.netid && this.config.netid !== config.netid) {
+            this.log(
+                "debug",
+                `netid changed from ${this.config.netid} to ${config.netid}`
+            );
+            if (this.socket) {
+                this.log(
+                    "debug",
+                    `closing socket ${this.socket.address().address}:${this.socket.address().port}`
+                );
+                this.socket.close();
+                this.socket = undefined;
+            }
+            // if (this.UmbraClient) {
+            //     this.log(
+            //         "debug",
+            //         `destroying UmbraClient for netid change from ${this.config.netid} to ${config.netid}`
+            //     );
+            //     this.UmbraClient.destroy(this, () => {
+            //         this.log(
+            //             "debug",
+            //             `starting discovery for new netid ${config.netid}`
+            //         );
+            //         this.socket = startDiscovery(
+            //             config,
+            //             this,
+            //             (client, config) => {
+            //                 this.UmbraClient = client;
+            //                 this.saveConfig(config);
+            //             },
+            //             () => {
+            //                 this.errorhandler();
+            //             }
+            //         );
+            //     });
+            // } else {
+            //     this.log(
+            //         "debug",
+            //         `starting discovery for new netid ${config.netid}`
+            //     );
+            //     this.socket = startDiscovery(
+            //         config,
+            //         this,
+            //         (client, config) => {
+            //             this.UmbraClient = client;
+            //             this.saveConfig(config);
+            //         },
+            //         () => {
+            //             this.errorhandler();
+            //         }
+            //     );
+            // }
+            // this.updateStatus(InstanceStatus.Connecting);
+        }
+        this.log("debug", `configUpdated: ${JSON.stringify(config, null, 2)}`);
         this.config = config;
         return Promise.resolve();
     }

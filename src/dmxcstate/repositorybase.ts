@@ -20,6 +20,12 @@ export class RepositoryBase<T extends IDMXCObject> {
 
     public remove(id: string) {
         this.data.delete(id);
+        for (const element of this.namelookup.entries()) {
+            if (element[1] === id) {
+                this.namelookup.delete(element[0]);
+                break;
+            }
+        }
     }
 
     public clear() {

@@ -1,7 +1,7 @@
 import { CompanionPresetDefinitions, combineRgb } from "@companion-module/base";
 import { DMXCModuleInstance } from "./main";
-import { ExecutorDescriptor } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
-import { MacroDescriptor } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
+import { IExecutor } from "./dmxcstate/executor/iexecutor";
+import { IMacro } from "./dmxcstate/macro/imacro";
 
 export class PresetsManager {
     private macropresets: CompanionPresetDefinitions;
@@ -12,35 +12,21 @@ export class PresetsManager {
         this.executorpresets = {};
     }
 
-    createExecutorPresets(executorlist: ExecutorDescriptor[]) {
+    createExecutorPresets(executorlist: IExecutor[]) {
         this.executorpresets = {};
         for (const executor of executorlist) {
             const name = executor.name;
-            for (let i = 1; i <= 4; i++) {
-                let buttonname = "";
-                switch (i) {
-                    case 1:
-                        buttonname = executor.button1DisplayName;
-                        break;
-                    case 2:
-                        buttonname = executor.button2DisplayName;
-                        break;
-                    case 3:
-                        buttonname = executor.button3DisplayName;
-                        break;
-                    case 4:
-                        buttonname = executor.button4DisplayName;
-                        break;
-                    default:
-                        break;
-                }
-                this.executorpresets[`${executor.id}_button_${i}`] = {
+            let i = 1;
+            for (const button of executor.buttons) {
+                this.executorpresets[`${executor.ID}_button_${i}`] = {
                     type: "button",
                     category: name,
-                    name: buttonname,
+                    name: button.label,
                     style: {
                         text:
-                            buttonname.length > 0 ? buttonname : `Button ${i}`,
+                            button.label.length > 0
+                                ? button.label
+                                : `Button ${i}`,
                         size: "auto",
                         color: combineRgb(255, 255, 255),
                         bgcolor: combineRgb(0, 0, 0)
@@ -80,18 +66,27 @@ export class PresetsManager {
                             style: {
                                 bgcolor: combineRgb(255, 0, 0)
                             }
+                        },
+                        {
+                            feedbackId: "ButtonName",
+                            options: {
+                                id: executor.name,
+                                num: i,
+                                buttonType: "executor"
+                            }
                         }
                     ]
                 };
+                i++;
             }
-            this.executorpresets[`${executor.id}_fader`] = {
+            this.executorpresets[`${executor.ID}_fader`] = {
                 type: "button",
                 category: name,
-                name: executor.faderDisplayName,
+                name: executor.fader.label,
                 style: {
                     text:
-                        executor.faderDisplayName.length > 0
-                            ? executor.faderDisplayName
+                        executor.fader.label.length > 0
+                            ? executor.fader.label
                             : "Fader",
                     size: "auto",
                     color: combineRgb(255, 255, 255),
@@ -139,10 +134,10 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.executorpresets[`${executor.id}_fader_inc`] = {
+            this.executorpresets[`${executor.ID}_fader_inc`] = {
                 type: "button",
                 category: name,
-                name: executor.faderDisplayName,
+                name: executor.fader.label,
                 style: {
                     text: "⬆️",
                     size: "auto",
@@ -176,10 +171,10 @@ export class PresetsManager {
                     }
                 ]
             };
-            this.executorpresets[`${executor.id}_fader_dec`] = {
+            this.executorpresets[`${executor.ID}_fader_dec`] = {
                 type: "button",
                 category: name,
-                name: executor.faderDisplayName,
+                name: executor.name,
                 style: {
                     text: "⬇️",
                     size: "auto",
@@ -221,11 +216,11 @@ export class PresetsManager {
         }
     }
 
-    createMacroPresets(macrolist: MacroDescriptor[]) {
+    createMacroPresets(macrolist: IMacro[]) {
         this.macropresets = {};
         for (const macro of macrolist) {
             const macroName = macro.name;
-            this.macropresets[`${macro.id}_image`] = {
+            this.macropresets[`${macro.ID}_image`] = {
                 type: "button",
                 category: macroName,
                 name: "Image",
@@ -246,7 +241,7 @@ export class PresetsManager {
                 ]
             };
             for (const button of macro.buttons) {
-                this.macropresets[`${macro.id}_button_${button.number}`] = {
+                this.macropresets[`${macro.ID}_button_${button.number}`] = {
                     type: "button",
                     category: macroName,
                     name: button.label,
@@ -304,7 +299,7 @@ export class PresetsManager {
                 };
             }
             for (const fader of macro.faders) {
-                this.macropresets[`${macro.id}_fader_${fader.number}`] = {
+                this.macropresets[`${macro.ID}_fader_${fader.number}`] = {
                     type: "button",
                     category: macroName,
                     name: fader.label,
@@ -356,7 +351,7 @@ export class PresetsManager {
                         }
                     ]
                 };
-                this.macropresets[`${macro.id}_fader_${fader.number}_inc`] = {
+                this.macropresets[`${macro.ID}_fader_${fader.number}_inc`] = {
                     type: "button",
                     category: macroName,
                     name: `${fader.label} +`,
@@ -384,7 +379,7 @@ export class PresetsManager {
                     ],
                     feedbacks: []
                 };
-                this.macropresets[`${macro.id}_fader_${fader.number}_dec`] = {
+                this.macropresets[`${macro.ID}_fader_${fader.number}_dec`] = {
                     type: "button",
                     category: macroName,
                     name: `${fader.label} -`,
