@@ -33,7 +33,7 @@ export class ExecutorRepository extends RepositoryBase<IExecutor> {
             ],
             fader: {
                 key: executor.faderKey,
-                label: executor.faderDisplayName,
+                label: executor.faderDisplayName || executor.faderKey,
                 position: executor.faderPosition
             }
         };
@@ -72,7 +72,7 @@ export class ExecutorRepository extends RepositoryBase<IExecutor> {
             ];
             executorinstance.fader = {
                 key: executor.faderKey,
-                label: executor.faderDisplayName,
+                label: executor.faderDisplayName || executor.faderKey,
                 position: executor.faderPosition
             };
             this.namelookup.set(executorinstance.name, executorinstance.ID);
