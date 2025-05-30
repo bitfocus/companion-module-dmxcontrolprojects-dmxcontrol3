@@ -172,7 +172,10 @@ export function UpdateFeedbacks(self: DMXCModuleInstance) {
                 ) {
                     switch (feedback.options.faderType) {
                         case "macro":
-                            self.log("debug", `${JSON.stringify(feedback.options)}`);
+                            self.log(
+                                "debug",
+                                `${JSON.stringify(feedback.options)}`
+                            );
                             return {
                                 text: (
                                     self.repositories?.get(

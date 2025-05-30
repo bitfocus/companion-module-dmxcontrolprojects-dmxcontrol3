@@ -31,8 +31,7 @@ import {
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
 import { UserContextRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.User";
 import { UserClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
-
-type DMXCClient = MacroClient | ExecutorClient;
+import { IDMXCClient } from "./idmxcclient";
 
 type DMXCClientKey = "Macro" | "Executor";
 
@@ -46,7 +45,7 @@ export class GRPCClient {
 
     private interval?: NodeJS.Timeout;
 
-    private clients: Map<DMXCClientKey, DMXCClient>;
+    private clients: Map<DMXCClientKey, IDMXCClient>;
 
     private instance: DMXCModuleInstance;
 
@@ -70,7 +69,7 @@ export class GRPCClient {
             instance.runtimeid
         );
 
-        this.clients = new Map<DMXCClientKey, DMXCClient>();
+        this.clients = new Map<DMXCClientKey, IDMXCClient>();
 
         this.instance = instance;
     }
@@ -176,6 +175,10 @@ export class GRPCClient {
                             onError();
                             return;
                         }
+                        this.instance.log(
+                            "debug",
+                            response.message?.formatString ?? ""
+                        );
                         if (response.ok)
                             instance.updateStatus(InstanceStatus.Ok);
                     }
@@ -309,9 +312,13 @@ export class GRPCClient {
 
     public destroy(instance: DMXCModuleInstance, after: () => void): void {
         this.connectedClient?.close();
+        this.clients.forEach((val, _) => val.close());
         clearInterval(this.interval);
         this.umbraClient.logoff(
-            UmbraLogoffRequest.create({ client: this.clientProgramInfo }),
+            UmbraLogoffRequest.create({
+                client: this.clientProgramInfo,
+                sessionId: this.metadata?.get("SessionID")[0].toString()
+            }),
             (error, response) => {
                 if (error) {
                     instance.log("error", error.message);

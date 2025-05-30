@@ -14,8 +14,9 @@ import {
     MacroSetButtonStateRequest
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
 import { MacroClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
+import { IDMXCClient } from "./idmxcclient";
 
-export class MacroClient {
+export class MacroClient implements IDMXCClient {
     private mclient: MacroClientClient;
     private repo: MacroRepository;
 
@@ -90,21 +91,8 @@ export class MacroClient {
                 );
             })
             .on("error", (err) => {
-                instance.log("error", err.message);
+                instance.log("error", err.name);
             });
-    }
-
-    macroChangeHandler(response: MacroChangedMessage) {
-        const macro = response.macroData;
-        if (macro) {
-            this.instance.checkFeedbacks(
-                "ButtonState",
-                "ButtonName",
-                "FaderName",
-                "FaderState",
-                "Bitmap"
-            );
-        }
     }
 
     sendFaderState(request: MacroSetFaderStateRequest) {
@@ -137,5 +125,9 @@ export class MacroClient {
                 }
             })
         );
+    }
+
+    close() {
+        this.mclient.close();
     }
 }

@@ -12,8 +12,9 @@ import {
     ExecutorChangedMessage,
     SetExecutorValuesRequest
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
+import { IDMXCClient } from "./idmxcclient";
 
-export class ExecutorClient {
+export class ExecutorClient implements IDMXCClient {
     private eclient: ExecutorClientClient;
 
     private repo: ExecutorRepository;
@@ -87,7 +88,7 @@ export class ExecutorClient {
                 );
             })
             .on("error", (error) => {
-                instance.log("error", error.message);
+                instance.log("error", error.name);
             });
     }
 
@@ -104,5 +105,9 @@ export class ExecutorClient {
                 }
             })
         );
+    }
+
+    close() {
+        this.eclient.close();
     }
 }

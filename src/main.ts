@@ -106,8 +106,10 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 
     async destroy(): Promise<void> {
         this.log("debug", "destroy");
-        this.UmbraClient?.destroy(this, () => {
-            return Promise.resolve();
+        return new Promise((resolve, _) => {
+            this.UmbraClient?.destroy(this, () => {
+                resolve();
+            });
         });
     }
 
@@ -125,46 +127,6 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
                 this.socket.close();
                 this.socket = undefined;
             }
-            // if (this.UmbraClient) {
-            //     this.log(
-            //         "debug",
-            //         `destroying UmbraClient for netid change from ${this.config.netid} to ${config.netid}`
-            //     );
-            //     this.UmbraClient.destroy(this, () => {
-            //         this.log(
-            //             "debug",
-            //             `starting discovery for new netid ${config.netid}`
-            //         );
-            //         this.socket = startDiscovery(
-            //             config,
-            //             this,
-            //             (client, config) => {
-            //                 this.UmbraClient = client;
-            //                 this.saveConfig(config);
-            //             },
-            //             () => {
-            //                 this.errorhandler();
-            //             }
-            //         );
-            //     });
-            // } else {
-            //     this.log(
-            //         "debug",
-            //         `starting discovery for new netid ${config.netid}`
-            //     );
-            //     this.socket = startDiscovery(
-            //         config,
-            //         this,
-            //         (client, config) => {
-            //             this.UmbraClient = client;
-            //             this.saveConfig(config);
-            //         },
-            //         () => {
-            //             this.errorhandler();
-            //         }
-            //     );
-            // }
-            // this.updateStatus(InstanceStatus.Connecting);
         }
         this.log("debug", `configUpdated: ${JSON.stringify(config, null, 2)}`);
         this.config = config;
