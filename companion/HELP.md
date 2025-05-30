@@ -27,4 +27,5 @@ It enables seamless integration between Companion and DMXControl, allowing you t
 - **Button State**: Indicates if the button is pressed.
 - **Button Name**: Displays the name of the selected button.
 - **Fader State**: Shows the current value of the fader.
+- **Fader Name**: Displays the name of the fader.
 - **Macro Image**: Displays the image associated with the macro.
