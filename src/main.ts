@@ -5,50 +5,32 @@ import {
 } from "@companion-module/base";
 import { UpgradeScripts } from "./upgrades";
 import { Config, configFields } from "./config";
-import { ActionFactory } from "./actions";
-import { UpdateFeedbacks } from "./feedbacks";
-import { UpdateVariables } from "./variables";
 import { GRPCClient } from "./grpc/grpcclient";
 import { startDiscovery } from "./utils";
-import { MacroRepository } from "./dmxcstate/macro/macrorepository";
-import { PresetsManager } from "./presets";
-import { ExecutorRepository } from "./dmxcstate/executor/executorrepository";
 import { randomUUID } from "crypto";
 import dgram from "dgram";
-
-type DMXCRepository = MacroRepository | ExecutorRepository;
 
 export class DMXCModuleInstance extends InstanceBase<Config> {
     public config?: Config;
 
     public UmbraClient?: GRPCClient;
 
-    public actions?: ActionFactory;
-
-    public repositories?: Map<string, DMXCRepository>;
-
-    public presets?: PresetsManager;
-
     public runtimeid = "";
 
     public socket: dgram.Socket | undefined;
+
+    private request_id_prefix = "WonWon";
+
+    private request_id_num = 0;
 
     async init(config: Config) {
         this.config = config;
 
         this.runtimeid = randomUUID().toString();
 
+        this.request_id_prefix += `-${randomUUID()}`;
+
         this.updateStatus(InstanceStatus.Connecting);
-
-        this.actions = new ActionFactory(this);
-        this.repositories = new Map<string, DMXCRepository>();
-        this.repositories.set("MacroRepository", new MacroRepository());
-        this.repositories.set("ExecutorRepository", new ExecutorRepository());
-        this.presets = new PresetsManager(this);
-
-        this.updateActions(); // export actions
-        this.updateFeedbacks(); // export feedbacks
-        this.updateVariableDefinitions(); // export variable definitions
 
         if (config.disablediscovery) {
             this.UmbraClient = new GRPCClient(
@@ -133,20 +115,12 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
         return Promise.resolve();
     }
 
+    getRequestId(): string {
+        return `${this.request_id_prefix}-${this.request_id_num++}`;
+    }
+
     getConfigFields() {
         return configFields();
-    }
-
-    updateActions() {
-        this.actions?.updateActions();
-    }
-
-    updateFeedbacks() {
-        UpdateFeedbacks(this);
-    }
-
-    updateVariableDefinitions() {
-        UpdateVariables(this);
     }
 }
 

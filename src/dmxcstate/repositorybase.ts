@@ -1,8 +1,11 @@
-import { IDMXCObject } from "./common";
-
-export class RepositoryBase<T extends IDMXCObject> {
+export class RepositoryBase<T extends { id: string; name: string }> {
     protected data: Map<string, T> = new Map<string, T>();
     protected namelookup: Map<string, string> = new Map<string, string>();
+
+    public add(instance: T) {
+        this.data.set(instance.id, instance);
+        this.namelookup.set(instance.name, instance.id);
+    }
 
     public getSingle(id: string): T | undefined {
         return (

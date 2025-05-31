@@ -5,6 +5,8 @@ const typescriptEslint = require("@typescript-eslint/eslint-plugin");
 const globals = require("globals");
 const js = require("@eslint/js");
 
+const stylistic = require("@stylistic/eslint-plugin");
+
 const { FlatCompat } = require("@eslint/eslintrc");
 
 const compat = new FlatCompat({
@@ -36,7 +38,8 @@ module.exports = defineConfig([
         },
 
         plugins: {
-            "@typescript-eslint": typescriptEslint
+            "@typescript-eslint": typescriptEslint,
+            "@stylistic": stylistic
         },
 
         rules: {
@@ -52,7 +55,8 @@ module.exports = defineConfig([
                     ignoreRestSiblings: true
                 }
             ],
-            "@typescript-eslint/restrict-template-expressions": "off"
+            "@typescript-eslint/restrict-template-expressions": "off",
+            "@stylistic/semi": ["error"]
         }
     },
     globalIgnores([

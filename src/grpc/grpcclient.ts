@@ -2,7 +2,12 @@ import * as GRPC from "@grpc/grpc-js";
 import * as OS from "os";
 
 import { DMXCModuleInstance } from "../main";
-import { InstanceStatus } from "@companion-module/base";
+import {
+    CompanionActionDefinitions,
+    CompanionFeedbackDefinitions,
+    CompanionPresetDefinitions,
+    InstanceStatus
+} from "@companion-module/base";
 import { hashPasswordDMXC } from "../utils";
 import { MacroClient } from "./macroclient";
 import { ExecutorClient } from "./executorclient";
@@ -24,16 +29,9 @@ import {
     UmbraLoginRequest,
     UmbraLogoffRequest
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
-import { SetExecutorValuesRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Executor";
-import {
-    MacroSetFaderStateRequest,
-    MacroSetButtonStateRequest
-} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Macro";
 import { UserContextRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.User";
 import { UserClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
 import { IDMXCClient } from "./idmxcclient";
-
-type DMXCClientKey = "Macro" | "Executor";
 
 export class GRPCClient {
     private umbraClient: ClientServiceClient;
@@ -45,17 +43,13 @@ export class GRPCClient {
 
     private interval?: NodeJS.Timeout;
 
-    private clients: Map<DMXCClientKey, IDMXCClient>;
-
-    private instance: DMXCModuleInstance;
-
-    private requestid = 0;
+    private clients: IDMXCClient[];
 
     constructor(
         host: string,
         port: number,
         deviceName: string,
-        instance: DMXCModuleInstance
+        private instance: DMXCModuleInstance
     ) {
         this.endpoint = `${host}:${port}`;
 
@@ -69,13 +63,9 @@ export class GRPCClient {
             instance.runtimeid
         );
 
-        this.clients = new Map<DMXCClientKey, IDMXCClient>();
+        this.clients = [];
 
         this.instance = instance;
-    }
-
-    public getRequestId(): number {
-        return this.requestid++;
     }
 
     public static getClientProgramInfo(
@@ -121,6 +111,7 @@ export class GRPCClient {
         port: number,
         devicename: string,
         runtimeid: string,
+        requestid: string,
         callback: (response: InformClientExistsResponse) => void
     ) {
         const client = new DMXCNetServiceClient(
@@ -129,6 +120,7 @@ export class GRPCClient {
         );
         client.informClientExists(
             InformClientExistsRequest.create({
+                requestId: requestid,
                 info: this.getClientProgramInfo(devicename, runtimeid)
             }),
             (error, response) => {
@@ -208,6 +200,7 @@ export class GRPCClient {
                     GRPC.credentials.createInsecure()
                 ).bind(
                     UserContextRequest.create({
+                        requestId: this.instance.getRequestId(),
                         username: instance.config?.username ?? "DMXCDefault",
                         passwordHash: hashPasswordDMXC(
                             instance.config?.password ?? "DMXC3"
@@ -224,23 +217,60 @@ export class GRPCClient {
                             instance.log("error", "Metadata not set");
                             return;
                         }
+
                         try {
-                            this.clients.set(
-                                "Macro",
-                                new MacroClient(
-                                    this.endpoint,
-                                    this.metadata,
-                                    instance
-                                )
-                            );
-                            this.clients.set(
-                                "Executor",
+                            this.clients.push(
                                 new ExecutorClient(
                                     this.endpoint,
                                     this.metadata,
                                     instance
                                 )
                             );
+                            this.clients.push(
+                                new MacroClient(
+                                    this.endpoint,
+                                    this.metadata,
+                                    instance
+                                )
+                            );
+
+                            const actions: CompanionActionDefinitions = {};
+                            for (const a of this.clients.map((c) =>
+                                c.generateActions()
+                            )) {
+                                for (const key in a) {
+                                    actions[key] = a[key];
+                                }
+                            }
+                            this.instance.setActionDefinitions(actions);
+
+                            const feedbacks: CompanionFeedbackDefinitions = {};
+                            for (const f of this.clients.map((c) =>
+                                c.generateFeedbacks()
+                            )) {
+                                for (const key in f) {
+                                    feedbacks[key] = f[key];
+                                }
+                            }
+
+                            this.instance.log(
+                                "debug",
+                                `Set feedbacks: ${JSON.stringify(feedbacks)}`
+                            );
+
+                            this.instance.setFeedbackDefinitions(feedbacks);
+
+                            this.instance.setVariableDefinitions(
+                                this.clients
+                                    .map((c) => c.generateVariables())
+                                    .flat()
+                            );
+
+                            this.clients.forEach((client) => {
+                                client.startClient(() => {
+                                    this.updatePresets();
+                                });
+                            });
                         } catch {
                             instance.log(
                                 "error",
@@ -254,56 +284,15 @@ export class GRPCClient {
         );
     }
 
-    public sendFaderState(
-        request: MacroSetFaderStateRequest | SetExecutorValuesRequest
-    ) {
-        request.requestId = this.getRequestId().toString();
-        if ("macroId" in request) {
-            request.macroId =
-                this.instance.repositories
-                    ?.get("MacroRepository")
-                    ?.getSingle(request.macroId)?.ID ?? request.macroId;
-            const client = this.clients.get("Macro") as MacroClient;
-            client.sendFaderState(request);
+    updatePresets() {
+        const presets: CompanionPresetDefinitions = {};
+        for (const p of this.clients.map((c) => c.generatePresets())) {
+            for (const key in p) {
+                presets[key] = p[key];
+            }
         }
-        if ("executorId" in request) {
-            request.executorId =
-                this.instance.repositories
-                    ?.get("ExecutorRepository")
-                    ?.getSingle(request.executorId)?.ID ?? request.executorId;
-            const client = this.clients.get("Executor") as ExecutorClient;
-            client.sendExecutorState(request);
-        }
-    }
-
-    public sendButtonState(
-        request: MacroSetButtonStateRequest | SetExecutorValuesRequest
-    ) {
-        request.requestId = this.getRequestId().toString();
-        if ("macroId" in request) {
-            request.macroId =
-                this.instance.repositories
-                    ?.get("MacroRepository")
-                    ?.getSingle(request.macroId)?.ID ?? request.macroId;
-            const client = this.clients.get("Macro") as MacroClient;
-            client.sendButtonState(request);
-        }
-        if ("executorId" in request) {
-            this.instance.log(
-                "debug",
-                `Sending ExecutorState for Executor: ${request.executorId}`
-            );
-            request.executorId =
-                this.instance.repositories
-                    ?.get("ExecutorRepository")
-                    ?.getSingle(request.executorId)?.ID ?? request.executorId;
-            this.instance.log(
-                "debug",
-                `ExecutorState for Executor: ${request.executorId}`
-            );
-            const client = this.clients.get("Executor") as ExecutorClient;
-            client.sendExecutorState(request);
-        }
+        this.instance.setPresetDefinitions({});
+        this.instance.setPresetDefinitions(presets);
     }
 
     public getMetadata(): GRPC.Metadata | undefined {

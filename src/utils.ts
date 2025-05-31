@@ -16,16 +16,6 @@ export function hashPasswordDMXC(password: string): string {
     return hash.update(start).digest("base64");
 }
 
-export function loggedMethod<T>(original: (r: T) => void) {
-    return (e: Error | null, r: T) => {
-        if (e) {
-            console.error(e);
-            return;
-        }
-        original(r);
-    };
-}
-
 export function startDiscovery(
     config: Config,
     instance: DMXCModuleInstance,
@@ -68,6 +58,7 @@ export function startDiscovery(
                 port,
                 config.devicename,
                 instance.runtimeid,
+                instance.getRequestId(),
                 (response) => {
                     response.requests.forEach((request) => {
                         if (request.targetNetworkId) {
