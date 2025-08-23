@@ -32,6 +32,7 @@ import {
 import { UserContextRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.User";
 import { UserClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
 import { IDMXCClient } from "./idmxcclient";
+import { CuelistClient } from "./cuelistclient";
 
 export class GRPCClient {
     private umbraClient: ClientServiceClient;
@@ -228,6 +229,13 @@ export class GRPCClient {
                             );
                             this.clients.push(
                                 new MacroClient(
+                                    this.endpoint,
+                                    this.metadata,
+                                    instance
+                                )
+                            );
+                            this.clients.push(
+                                new CuelistClient(
                                     this.endpoint,
                                     this.metadata,
                                     instance
