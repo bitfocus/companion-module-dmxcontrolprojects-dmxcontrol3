@@ -9,7 +9,7 @@ import { Client } from "@grpc/grpc-js";
 export interface IDMXCClient {
     grpcclient: Client;
 
-    startClient(updatePresets: () => void): void;
+    startClient(updatePresets: () => void, updateActions: () => void, updateFeedbacks: () => void, updateVariables: () => void): void;
 
     generateActions(): CompanionActionDefinitions;
 

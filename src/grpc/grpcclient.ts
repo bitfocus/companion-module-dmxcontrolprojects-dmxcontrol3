@@ -177,7 +177,7 @@ export class GRPCClient {
                 );
                 const stream = this.connectedClient.ping(this.metadata);
                 stream.on("error", (err) => {
-                    instance.log("error", err.message);
+                    instance.log("error", "In Ping stream: " + err.message);
                     onError();
                 });
                 stream.on("data", (data: PingPong) => {
@@ -209,7 +209,7 @@ export class GRPCClient {
                     this.metadata,
                     (error, _) => {
                         if (error) {
-                            instance.log("error", error.message);
+                            instance.log("error", "While binding user: " + error.message);
                             onError();
                             return;
                         }
@@ -234,47 +234,22 @@ export class GRPCClient {
                                 )
                             );
 
-                            const actions: CompanionActionDefinitions = {};
-                            for (const a of this.clients.map((c) =>
-                                c.generateActions()
-                            )) {
-                                for (const key in a) {
-                                    actions[key] = a[key];
-                                }
-                            }
-                            this.instance.setActionDefinitions(actions);
-
-                            const feedbacks: CompanionFeedbackDefinitions = {};
-                            for (const f of this.clients.map((c) =>
-                                c.generateFeedbacks()
-                            )) {
-                                for (const key in f) {
-                                    feedbacks[key] = f[key];
-                                }
-                            }
-
-                            this.instance.log(
-                                "debug",
-                                `Set feedbacks: ${JSON.stringify(feedbacks)}`
-                            );
-
-                            this.instance.setFeedbackDefinitions(feedbacks);
-
-                            this.instance.setVariableDefinitions(
-                                this.clients
-                                    .map((c) => c.generateVariables())
-                                    .flat()
-                            );
+                            this.updateActions();
+                            this.updateFeedbacks();
 
                             this.clients.forEach((client) => {
-                                client.startClient(() => {
-                                    this.updatePresets();
-                                });
+                                client.startClient(
+                                    this.updatePresets.bind(this),
+                                    this.updateActions.bind(this),
+                                    this.updateFeedbacks.bind(this),
+                                    this.updateVariables.bind(this),
+                                );
                             });
-                        } catch {
+                        } catch (err) {
                             instance.log(
                                 "error",
-                                "Something died while retrieving changes!"
+                                "Something died while retrieving changes: " +
+                                ((err as Error)?.message ? (err as Error).message : err)
                             );
                             onError();
                         }
@@ -295,6 +270,44 @@ export class GRPCClient {
         this.instance.setPresetDefinitions(presets);
     }
 
+    updateActions() {
+        const actions: CompanionActionDefinitions = {};
+        for (const a of this.clients.map((c) =>
+            c.generateActions()
+        )) {
+            for (const key in a) {
+                actions[key] = a[key];
+            }
+        }
+        this.instance.setActionDefinitions(actions);
+    }
+
+    updateFeedbacks() {
+        const feedbacks: CompanionFeedbackDefinitions = {};
+        for (const f of this.clients.map((c) =>
+            c.generateFeedbacks()
+        )) {
+            for (const key in f) {
+                feedbacks[key] = f[key];
+            }
+        }
+
+        this.instance.log(
+            "debug",
+            `Set feedbacks: ${JSON.stringify(feedbacks)}`
+        );
+
+        this.instance.setFeedbackDefinitions(feedbacks);
+    }
+
+    updateVariables() {
+        this.instance.setVariableDefinitions(
+            this.clients
+                .map((c) => c.generateVariables())
+                .flat()
+        );
+    }
+
     public getMetadata(): GRPC.Metadata | undefined {
         return this.metadata;
     }
@@ -312,7 +325,7 @@ export class GRPCClient {
             }),
             (error, response) => {
                 if (error) {
-                    instance.log("error", error.message);
+                    instance.log("error", "While logging off: " + error.message);
                     return;
                 }
                 instance.log("debug", response.bye);
