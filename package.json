@@ -15,7 +15,7 @@
 		"url": "git+https://github.com/bitfocus/companion-module-dmxcontrolprojects-dmxcontrol3.git"
 	},
 	"dependencies": {
-		"@companion-module/base": "~1.11.0",
+		"@companion-module/base": "~1.12.0",
 		"@deluxequadrat/dmxc-grpc-client": "^1.0.2"
 	},
 	"devDependencies": {
