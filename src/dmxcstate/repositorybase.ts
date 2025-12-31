@@ -1,4 +1,9 @@
-import { CompanionInputFieldDropdown, CompanionOptionValues } from "@companion-module/base";
+import { CompanionInputFieldDropdown, CompanionInputFieldTextInput, CompanionOptionValues } from "@companion-module/base";
+
+enum IdNameFieldType {
+    Dropdown = "dropdown",
+    TextVariables = "textinput",
+}
 
 export class RepositoryBase<T extends { id: string; name: string }> {
     protected data: Map<string, T> = new Map<string, T>();
@@ -51,27 +56,79 @@ export class RepositoryBase<T extends { id: string; name: string }> {
         this.data.clear();
     }
 
-    public generateIdOpion(label: string): CompanionInputFieldDropdown {
-        const allOptions = this.getAll().map(list => ({ id: list.id, label: list.name }));
-        return {
-            id: "id_or_name",
-            type: "dropdown",
-            label,
-            choices: allOptions,
-            allowCustom: true,
-            default: allOptions[0]?.id ?? ""
-        };
+    /**
+     * Generates companion input fields to allow the user to select (dropdown) or enter (text field with valiables)
+     * the id of any element in this repository
+     * 
+     * @param label The label for the id input or dropdown field
+     * @returns 3 Companion input fields (choice between dropdown/text, conditional dropdown, conditional text input)
+     */
+    public generateIdOpion(label: string): (CompanionInputFieldDropdown | CompanionInputFieldTextInput)[] {
+        const allOptions = this.getAll().map(element => ({ id: element.id, label: element.name }));
+        return [
+            {
+                type: "dropdown",
+                label: "Type of ID/name field",
+                id: "id_or_name_type",
+                default: IdNameFieldType.Dropdown,
+                choices: [
+                    { id: IdNameFieldType.Dropdown, label: "Dropdown coice" },
+                    { id: IdNameFieldType.TextVariables, label: "Text/Variables" },
+                ],
+            },
+            {
+                id: "id_or_name_choice",
+                type: "dropdown",
+                label,
+                choices: allOptions,
+                allowCustom: true,
+                default: allOptions[0]?.id ?? "",
+                isVisibleExpression: `$(options:id_or_name_type) == "${IdNameFieldType.Dropdown}"`,
+            },
+            {
+                id: "id_or_name_text",
+                type: "textinput",
+                label: label + " (with variables)",
+                default: "",
+                isVisibleExpression: `$(options:id_or_name_type) == "${IdNameFieldType.TextVariables}"`,
+                useVariables: {
+                    local: true,
+                },
+            },
+        ];
     }
 
-    public checkAndGetIdOption(options: CompanionOptionValues): T {
-        const id = options?.id_or_name;
+    /**
+     * Retrieves the selected element from this repository slected using the fields created with `generateIdOpion`
+     * 
+     * @param options The (full, unmodified) `options` object returned in the event (e.g. in an action) by companion
+     * @param parseVariablesInString The `parseVariablesInString` in the context (second param) passed to events (e.g. actions)
+     * @returns Promise resolving to the selected element
+     * @throws Rejects promise if user input couldn't be resolved to an element in this repository
+     */
+    public async checkAndGetIdOption(options: CompanionOptionValues, parseVariablesInString: (text: string) => Promise<string>): Promise<T> {
+        const id_type = options?.id_or_name_type as string;
+        if (typeof id_type !== "string") {
+            throw new Error("A valid way to input id/name must be selected: " + JSON.stringify(options));
+        }
+        let id: string;
+        switch (id_type) {
+            case IdNameFieldType.Dropdown:
+                id = options.id_or_name_choice as string;
+                break;
+            case IdNameFieldType.TextVariables:
+                id = await parseVariablesInString(options.id_or_name_text as string);
+                break;
+            default:
+                throw new Error("Unknown way to input id/name");
+        }
         if (typeof id !== "string") {
-            throw new Error("To set cuelist intensity, cuelist id and intensity must be set");
+            throw new Error("Provided id was not a string. Could not find element.");
         }
-        const list = this.getSingle(id);
-        if (list === undefined) {
-            throw new Error(`Cuelist ${id} does not exist.`);
+        const element = this.getSingle(id);
+        if (element === undefined) {
+            throw new Error(`Element ${id} does not exist.`);
         }
-        return list;
+        return element;
     }
 }

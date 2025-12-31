@@ -1,13 +1,14 @@
 import * as GRPC from "@grpc/grpc-js";
-import { CompanionActionDefinition, CompanionActionDefinitions, CompanionActionEvent, CompanionFeedbackDefinition, CompanionFeedbackDefinitions, CompanionFeedbackInfo, CompanionOptionValues, CompanionPresetDefinitions, CompanionVariableDefinition, CompanionVariableValue } from "@companion-module/base";
+import { CompanionActionDefinition, CompanionActionDefinitions, CompanionActionEvent, CompanionFeedbackDefinition, CompanionFeedbackDefinitions, CompanionFeedbackInfo, CompanionInputFieldNumber, CompanionInputFieldTextInput, CompanionOptionValues, CompanionPresetDefinitions, CompanionVariableDefinition, CompanionVariableValue } from "@companion-module/base";
 import { IDMXCClient } from "./idmxcclient";
-import { CuelistClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
+import { CuelistClientClient, ParameterClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
 import { DMXCModuleInstance } from "../main";
 import { RepositoryBase } from "../dmxcstate/repositorybase";
 import { CuelistActionRequest, CuelistActionRequest_EAction, CuelistChangedMessage, CuelistDescriptor, CuelistProgressStateChangeMessage, CuelistProgressStateChangeRequest, ESceneListState, GetCuelistsResponse, SetCuelistValueRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Cuelist";
-import { ConfirmedResponse, EChangeType, GetMultipleRequest, GetRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
+import { ConfirmedResponse, EChangeType, GetMultipleRequest, GetParametersRequest, GetParametersResponse, GetRequest, SetTestParameterValueRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
 import { CompanionCommonCallbackContext } from "@companion-module/base/dist/module-api/common";
 import { CueProgressStateMessage } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Cue";
+import { checkAndGetNumberOrVariable, generateNumberOrVariableField } from "../utils";
 
 // Time between requesting full cuelist updates
 // See CuelistClient.pollInterval
@@ -16,8 +17,9 @@ const CUELIST_POLL_INTERVAL = 60000;
 type VariableWithValue = CompanionVariableDefinition & { value: CompanionVariableValue };
 
 enum CuelistActions {
-    SetIntensity = "cuelist_set_intensity",
-    CuelistAction = "cuelist_action"
+    SetIntensityFadeSpeed = "cuelist_set_intensity",
+    CuelistAction = "cuelist_action",
+    CuelistSetPlayMode = "cuelist_set_play_mode",
 }
 
 enum CuelistFeedbacks {
@@ -45,9 +47,22 @@ enum ESceneState {
     Stopped = 0x80,
 }
 
+const CUE_INDEX_INPUT: CompanionInputFieldNumber = {
+    id: "cue_index",
+    label: "Cue index (0 based)",
+    tooltip: "Index of cue (0 based position of cue in cuelist), NOT cue number",
+    type: "number",
+    min: 0,
+    max: 4294967295,
+    default: 0,
+};
+const ACTIONS_REQUIRING_CUE_INDEX = [CuelistActionRequest_EAction.GO_TO, CuelistActionRequest_EAction.GO_NEXT, CuelistActionRequest_EAction.LOAD];
+
 export class CuelistClient implements IDMXCClient {
     grpcclient: CuelistClientClient;
+    paramGrpcclient: ParameterClientClient;
     repo: RepositoryBase<CuelistDescriptor>;
+    private isRunning: boolean = false;
     // Map of cuelist id to feedback id that listens to that cuelist
     private progressFeedbacks: Map<string, Set<string>>;
     private cueProgressPerCuelist: Map<string, Map<number, CueProgressStateMessage>>;
@@ -72,6 +87,10 @@ export class CuelistClient implements IDMXCClient {
         this.progressFeedbacks = new Map();
         this.cueProgressPerCuelist = new Map();
         this.grpcclient = new CuelistClientClient(
+            endpoint,
+            GRPC.credentials.createInsecure()
+        );
+        this.paramGrpcclient = new ParameterClientClient(
             endpoint,
             GRPC.credentials.createInsecure()
         );
@@ -132,7 +151,7 @@ export class CuelistClient implements IDMXCClient {
 
     private onReceiveProgressChange(progress: CuelistProgressStateChangeMessage) {
         const list = this.repo.getSingle(progress.cuelistId);
-        if (list) {
+        if (list && list.state != progress.cuelistState) {
             list.state = progress.cuelistState;
             this.setVariables(this.generateVariablesCuelistProperties(progress.cuelistId))
             this.instance.checkFeedbacks(CuelistFeedbacks.CuelistState);
@@ -150,7 +169,6 @@ export class CuelistClient implements IDMXCClient {
         this.setVariables(this.generateVariablesCueProgress(progress.cuelistId));
         const subscribers = this.progressFeedbacks.get(progress.cuelistId);
         if (subscribers) {
-            //todo: restrict checkFeedback to those actually referencing one of the updated cues
             this.instance.checkFeedbacksById(...subscribers.values())
         }
     }
@@ -170,54 +188,72 @@ export class CuelistClient implements IDMXCClient {
     }
 
     async startClient(updatePresets: () => void, updateActions: () => void, updateFeedbacks: () => void, updateVariables: () => void) {
+        this.isRunning = true;
         this.updatePresets = updatePresets;
         this.updateActions = updateActions;
         this.updateFeedbacks = updateFeedbacks;
         this.updateVariables = updateVariables;
         try {
-            this.changeStream = this.grpcclient.receiveCuelistChanges(
-                GetRequest.create({ requestId: this.instance.getRequestId() }),
-                this.metadata
-            );
-            this.changeStream.on("data", (response: CuelistChangedMessage) => {
-                switch (response.changeType) {
-                    case EChangeType.Added:
-                        if (response.cuelistData) {
-                            this.repo.add(response.cuelistData);
-                            this.onCuelistAddedRemoved();
-                        }
-                        break;
-                    case EChangeType.Changed:
-                        if (response.cuelistData) {
-                            this.onReceiveCuelistChanged(response.cuelistData);
-                        }
-                        break;
-                    case EChangeType.Removed:
-                        let removedId = response.cuelistId || response.cuelistData?.id;
-                        if (removedId) {
-                            this.repo.remove(removedId);
-                            this.cueProgressPerCuelist.delete(removedId);
-                            this.onCuelistAddedRemoved();
-                        }
-                        break;
-                }
-            });
-            this.changeStream.on("error", (error) => {
-                this.instance.log("error", "In cuelist changes stream: " + error.name);
-            });
-            this.changeStream.on("close", () => {
-                this.instance.log("warn", "Cuelist changed stream was closed");
-                //todo: reopen
-            });
+            if (this.changeStream == null || this.changeStream.closed) {
+                this.changeStream = this.grpcclient.receiveCuelistChanges(
+                    GetRequest.create({ requestId: this.instance.getRequestId() }),
+                    this.metadata
+                );
+                this.changeStream.on("data", (response: CuelistChangedMessage) => {
+                    switch (response.changeType) {
+                        case EChangeType.Added:
+                            if (response.cuelistData) {
+                                this.repo.add(response.cuelistData);
+                                this.onCuelistAddedRemoved();
+                            }
+                            break;
+                        case EChangeType.Changed:
+                            if (response.cuelistData) {
+                                this.onReceiveCuelistChanged(response.cuelistData);
+                            }
+                            break;
+                        case EChangeType.Removed:
+                            let removedId = response.cuelistId || response.cuelistData?.id;
+                            if (removedId) {
+                                this.repo.remove(removedId);
+                                this.cueProgressPerCuelist.delete(removedId);
+                                this.onCuelistAddedRemoved();
+                            }
+                            break;
+                    }
+                });
+                this.changeStream.on("error", (error) => {
+                    this.instance.log("error", "In cuelist changes stream: " + error.name);
+                });
+                this.changeStream.on("close", () => {
+                    this.instance.log("warn", "Cuelist changed stream was closed");
+                    if (this.isRunning) {
+                        this.instance.log("warn", "Attempting to reopen");
+                        this.startClient(this.updatePresets, updateActions, updateFeedbacks, updateVariables);
+                    }
+                });
+            } else {
+                this.instance.log("info", "Not opening cuelist changed stream as it seems to be already open");
+            }
 
-            this.progressStream = this.grpcclient.receiveCuelistProgressChanges(this.metadata);
-            this.progressStream.on("data", (progress: CuelistProgressStateChangeMessage) => {
-                this.onReceiveProgressChange(progress);
-            });
-            this.progressStream.on("close", () => {
-                this.instance.log("warn", "Cuelist progress stream was closed");
-                //todo: reopen
-            });
+            if (this.progressStream == null || this.progressStream.closed) {
+                // If stream is newly opened, ensure all subscriptions are sent to server by unsubscribing and then resubscribing all
+                this.instance.unsubscribeFeedbacks(CuelistFeedbacks.CueProgress);
+
+                this.progressStream = this.grpcclient.receiveCuelistProgressChanges(this.metadata);
+                this.progressStream.on("data", (progress: CuelistProgressStateChangeMessage) => {
+                    this.onReceiveProgressChange(progress);
+                });
+                this.progressStream.on("close", () => {
+                    this.instance.log("warn", "Cuelist progress stream was closed");
+                    if (this.isRunning) {
+                        this.instance.log("warn", "Attempting to reopen");
+                        this.startClient(this.updatePresets, updateActions, updateFeedbacks, updateVariables);
+                    }
+                });
+            } else {
+                this.instance.log("info", "Not opening cuelist progress stream as it seems to be already open");
+            }
 
             if (this.pollInterval == null) {
                 this.pollInterval = setInterval(this.getAllCuelists.bind(this, true), CUELIST_POLL_INTERVAL);
@@ -228,31 +264,37 @@ export class CuelistClient implements IDMXCClient {
         }
     }
 
+
+
     generateActions(): CompanionActionDefinitions {
         this.instance.log("debug", "Reloading cuelist actions");
 
         const actions: Record<CuelistActions, CompanionActionDefinition> = {
-            [CuelistActions.SetIntensity]: {
-                name: "Cuelist: Set intensity",
-                description: "Set the intensity slider value of a cuelist (Same effect as if executor with fader set to intensity)",
+            [CuelistActions.SetIntensityFadeSpeed]: {
+                name: "Cuelist: Set intensity/fade factor/speed factor",
+                description: "Set the value of the intensity/fade factor/speed factor slider of a cuelist (Same effect as if executor with fader set to that mode)",
                 options: [
-                    this.repo.generateIdOpion("Cuelist ID or name"),
+                    ...this.repo.generateIdOpion("Cuelist ID or name"),
                     {
-                        id: "intensity",
-                        type: "number",
-                        label: "Intensity (%)",
-                        min: 0,
-                        max: 100,
-                        default: 100,
-                    }
+                        id: "slider_to_change",
+                        type: "dropdown",
+                        label: "Slider",
+                        choices: [
+                            { id: "intensity", label: "Intensity" },
+                            { id: "fade", label: "Fade Factor" },
+                            { id: "speed", label: "Speed Factor" },
+                        ],
+                        default: "intensity",
+                    },
+                    ...generateNumberOrVariableField("Value (%)", 0, 1000, 100),
                 ],
-                callback: this.onActionSetIntensity.bind(this)
+                callback: this.onActionSetIntensityFadeSpeed.bind(this)
             },
             [CuelistActions.CuelistAction]: {
                 name: "Cuelist: Run Action",
                 description: "Run an action (e.g. GO, STOP, ...) on a cuelist",
                 options: [
-                    this.repo.generateIdOpion("Cuelist ID or name"),
+                    ...this.repo.generateIdOpion("Cuelist ID or name"),
                     {
                         id: "actionType",
                         label: "Action Type",
@@ -262,17 +304,44 @@ export class CuelistClient implements IDMXCClient {
                             { id: "PAUSE", label: "Pause" },
                             { id: "STOP", label: "Stop" },
                             { id: "GO_BACK", label: "Go Back" },
-                            //{id: "GO_TO", label: "Go To"},
+                            { id: "GO_TO", label: "Go To" },
                             { id: "GO_NEXT", label: "Go Next" },
                             { id: "GO", label: "Go" },
                             { id: "LOAD", label: "Load" },
                             { id: "REASSIGN_SCENE_NUMBERS", label: "Reassign scene numbers" },
                         ] as { id: keyof typeof CuelistActionRequest_EAction, label: string }[],
                         default: "GO",
+                    },
+                    {
+                        ...CUE_INDEX_INPUT,
+                        isVisibleExpression: `arrayIncludes([${Object.entries(CuelistActionRequest_EAction)
+                            .filter(([_, actionVal]) => ACTIONS_REQUIRING_CUE_INDEX.includes(actionVal as any))
+                            .map(([actionStr, _]) => '"' + actionStr + '"').join(",")
+                            }], $(options:actionType))`
                     }
                 ],
                 callback: this.onActionCuelistAction.bind(this)
-            }
+            },
+            [CuelistActions.CuelistSetPlayMode]: {
+                name: "Cuelist: Set play mode",
+                description: "Set the play mode of the cuelist",
+                options: [
+                    ...this.repo.generateIdOpion("Cuelist ID or name"),
+                    {
+                        id: "play_mode",
+                        type: "dropdown",
+                        label: "Play Mode",
+                        choices: [
+                            { id: "Once", label: "Once" },
+                            { id: "Loop", label: "Loop" },
+                            { id: "Bounce", label: "Bounce" },
+                            { id: "Random", label: "Random" },
+                        ] as { id: keyof typeof ESceneListPlayMode, label: string }[],
+                        default: "Once",
+                    },
+                ],
+                callback: this.onActionSetPlayMode.bind(this)
+            },
         };
         return actions;
     }
@@ -283,7 +352,7 @@ export class CuelistClient implements IDMXCClient {
                 type: "boolean",
                 name: "Cuelist: Check state",
                 options: [
-                    this.repo.generateIdOpion("Cuelist ID or name"),
+                    ...this.repo.generateIdOpion("Cuelist ID or name"),
                     {
                         id: "state",
                         label: "Cuelist state",
@@ -305,16 +374,8 @@ export class CuelistClient implements IDMXCClient {
                 type: "boolean",
                 name: "Cuelist: Previous/Current/Next cue",
                 options: [
-                    this.repo.generateIdOpion("Cuelist ID or name"),
-                    {
-                        id: "cue_index",
-                        label: "Cue index (0 based)",
-                        tooltip: "Index of cue (0 based position of cue in cuelist), NOT cue number",
-                        type: "number",
-                        min: 0,
-                        max: 4294967295,
-                        default: 0,
-                    },
+                    ...this.repo.generateIdOpion("Cuelist ID or name"),
+                    CUE_INDEX_INPUT,
                     {
                         id: "cue_state",
                         label: "Cue is ...",
@@ -337,16 +398,8 @@ export class CuelistClient implements IDMXCClient {
                 name: "Cuelist: Cue progress reached",
                 description: "Check if a cue has reached a certain point in its progress. Adding this feedback will subscribe to the progress of the selected cuelist and add variables for its progress",
                 options: [
-                    this.repo.generateIdOpion("Cuelist ID or name"),
-                    {
-                        id: "cue_index",
-                        label: "Cue index (0 based)",
-                        tooltip: "Index of cue (0 based position of cue in cuelist), NOT cue number",
-                        type: "number",
-                        min: 0,
-                        max: 4294967295,
-                        default: 0,
-                    },
+                    ...this.repo.generateIdOpion("Cuelist ID or name"),
+                    CUE_INDEX_INPUT,
                     {
                         id: "cue_progress_state",
                         label: "Cue state",
@@ -450,7 +503,7 @@ export class CuelistClient implements IDMXCClient {
                 { variableId: `cuelist_${list.id}_cue_${i}_msToWait`, name: `Cuelist ${list.name} cue ${cue.cueNumber?.number.join(".")} time in ms until cue is triggered`, value: cueProgress?.msToWait ?? -1 },
                 { variableId: `cuelist_${list.id}_cue_${i}_fadeTimeLeft`, name: `Cuelist ${list.name} cue ${cue.cueNumber?.number.join(".")} time left in fade (only on incoming) in ms`, value: cueProgress?.fadeTimeLeft ?? -1 },
                 { variableId: `cuelist_${list.id}_cue_${i}_delayTimeLeft`, name: `Cuelist ${list.name} cue ${cue.cueNumber?.number.join(".")} time left in pre delay in ms`, value: cueProgress?.delayTimeLeft ?? -1 },
-                { variableId: `cuelist_${list.id}_cue_${i}_durationTimeLeft`, name: `Cuelist ${list.name} cue ${cue.cueNumber?.number.join(".")} state`, value: cueProgress?.durationTimeLeft ?? -1 },
+                { variableId: `cuelist_${list.id}_cue_${i}_durationTimeLeft`, name: `Cuelist ${list.name} cue ${cue.cueNumber?.number.join(".")} duration time in ms`, value: cueProgress?.durationTimeLeft ?? -1 },
             ]
         })
     }
@@ -465,6 +518,7 @@ export class CuelistClient implements IDMXCClient {
     }
 
     close(): void {
+        this.isRunning = false;
         if (this.pollInterval != null) {
             clearInterval(this.pollInterval);
             this.pollInterval = null;
@@ -475,20 +529,20 @@ export class CuelistClient implements IDMXCClient {
         this.grpcclient.close();
     }
 
-    private async onActionSetIntensity(event: CompanionActionEvent) {
+    private async onActionSetIntensityFadeSpeed(event: CompanionActionEvent, ctx: CompanionCommonCallbackContext) {
         try {
-            const intensity = event.options?.intensity as number;
-            if (typeof intensity !== "number") {
-                throw new Error("To set cuelist intensity, cuelist id and intensity must be set");
-            }
-            const list = this.repo.checkAndGetIdOption(event.options);
+            const max = event.options.slider_to_change == "intensity" ? 100 : 1000;
+            const value = await checkAndGetNumberOrVariable(0, max, event.options, ctx.parseVariablesInString);
+            const list = await this.repo.checkAndGetIdOption(event.options, ctx.parseVariablesInString);
 
             const actionRes = await new Promise<ConfirmedResponse>((resolve, reject) =>
                 this.grpcclient.setCuelistValue(
                     SetCuelistValueRequest.create({
                         requestId: this.instance.getRequestId(),
                         cuelistId: list.id,
-                        intensity: intensity / 100
+                        intensity: event.options.slider_to_change == "intensity" ? value / 100 : undefined,
+                        fadeFactor: event.options.slider_to_change == "fade" ? value / 100 : undefined,
+                        speedFactor: event.options.slider_to_change == "speed" ? value / 100 : undefined,
                     }),
                     this.metadata,
                     (err, res) => err != null ? reject(err) : resolve(res)
@@ -502,7 +556,7 @@ export class CuelistClient implements IDMXCClient {
         }
     }
 
-    private async onActionCuelistAction(event: CompanionActionEvent) {
+    private async onActionCuelistAction(event: CompanionActionEvent, ctx: CompanionCommonCallbackContext) {
         try {
             const actionStr = event.options?.actionType as keyof typeof CuelistActionRequest_EAction | undefined;
             if (typeof actionStr !== "string") {
@@ -512,7 +566,14 @@ export class CuelistClient implements IDMXCClient {
             if (!action) {
                 throw new Error(`Cuelist action ${actionStr} does not exist.`);
             }
-            const list = this.repo.checkAndGetIdOption(event.options)
+            const cueIndex = (event.options[CUE_INDEX_INPUT.id] ?? 0) as number;
+            if (typeof cueIndex !== "number" || cueIndex < 0) {
+                if (ACTIONS_REQUIRING_CUE_INDEX.includes(action)) {
+                    throw new Error(`For action ${actionStr} a valid cue number >= 0 is required.`);
+                }
+            }
+
+            const list = await this.repo.checkAndGetIdOption(event.options, ctx.parseVariablesInString)
 
             const actionRes = await new Promise<ConfirmedResponse>((resolve, reject) =>
                 this.grpcclient.cuelistAction(
@@ -520,6 +581,7 @@ export class CuelistClient implements IDMXCClient {
                         requestId: this.instance.getRequestId(),
                         cuelistId: list.id,
                         action: action,
+                        index: ACTIONS_REQUIRING_CUE_INDEX.includes(action) ? cueIndex : 0
                     }),
                     this.metadata,
                     (err, res) => err != null ? reject(err) : resolve(res)
@@ -533,7 +595,59 @@ export class CuelistClient implements IDMXCClient {
         }
     }
 
-    private onFeedbackCuelistState(feedback: CompanionFeedbackInfo, _: CompanionCommonCallbackContext): boolean {
+    /**
+     * Setting the play mode requires a bit of a workaround by quering the PlayMode parameter and its allowed enum values
+     * and then searching for the string of the requested mode in the returned values as the kernel returns .NET serialized objects
+     * wich we can't (easily) parse in typescript
+     */
+    private async onActionSetPlayMode(event: CompanionActionEvent, ctx: CompanionCommonCallbackContext) {
+        try {
+            const mode = event.options?.play_mode as keyof typeof ESceneListPlayMode | undefined;
+            if (typeof mode !== "string") {
+                throw new Error("Not a valid play mode to be set");
+            }
+            const list = await this.repo.checkAndGetIdOption(event.options, ctx.parseVariablesInString)
+
+            const getParam = await new Promise<GetParametersResponse>((resolve, reject) =>
+                this.paramGrpcclient.getParameters(
+                    GetParametersRequest.create({
+                        id: list.id,
+                        type: "SceneList",
+                        nameFilter: ["PlayMode"],
+                    }),
+                    this.metadata,
+                    (err, res) => err != null ? reject(err) : resolve(res)
+                ));
+            if (getParam.parameters.length != 1) {
+                throw new Error("Couldn't find one parameter named PlayMode for SceneList " + list.id);
+            }
+            const param = getParam.parameters[0];
+            // hacky solution to search in the stringified .net object, but with unique names, this should work and is less effort than parsing the serialized .NET object
+            const value = param.enumValues.find(v => v.ienum?.fallback?.fallbackNet?.toString("utf-8")?.includes(mode) || v.obj?.fallbackNet?.toString("utf-8")?.includes(mode))
+            if (!value) {
+                throw new Error("Couldn't find matching value for mode " + mode);
+            }
+            console.log("Sending", param, value);
+            const setRes = await new Promise<ConfirmedResponse>((resolve, reject) =>
+                this.paramGrpcclient.setParameterValue(
+                    SetTestParameterValueRequest.create({
+                        id: list.id,
+                        parameter: getParam.parameters[0],
+                        value: value.ienum?.fallback ?? value.obj,
+                    }),
+                    this.metadata,
+                    (err, res) => err != null ? reject(err) : resolve(res)
+                ));
+
+            if (!setRes.ok) {
+                this.instance.log("error", "While setting cuelist play mode: " + JSON.stringify(setRes.message))
+            }
+        } catch (err) {
+            this.instance.log("warn", (err as Error)?.message);
+        }
+    }
+
+    private async onFeedbackCuelistState(feedback: CompanionFeedbackInfo, ctx: CompanionCommonCallbackContext): Promise<boolean> {
         try {
             const stateStr = feedback.options.state as keyof typeof ESceneListState;
             if (typeof stateStr !== "string") {
@@ -543,7 +657,7 @@ export class CuelistClient implements IDMXCClient {
             if (typeof state !== typeof ESceneListState.STOPPED) {
                 throw new Error(`Unknown cuelist state ${stateStr}`);
             }
-            const list = this.repo.checkAndGetIdOption(feedback.options);
+            const list = await this.repo.checkAndGetIdOption(feedback.options, ctx.parseVariablesInString);
             return list.state == state;
         } catch (err) {
             this.instance.log("warn", (err as Error)?.message);
@@ -551,7 +665,7 @@ export class CuelistClient implements IDMXCClient {
         }
     }
 
-    private onFeedbackCurrentCue(feedback: CompanionFeedbackInfo, _: CompanionCommonCallbackContext): boolean {
+    private async onFeedbackCurrentCue(feedback: CompanionFeedbackInfo, ctx: CompanionCommonCallbackContext): Promise<boolean> {
         try {
             const cueState = feedback.options.cue_state as string;
             if (!["previous", "current", "next"].includes(cueState)) {
@@ -561,7 +675,7 @@ export class CuelistClient implements IDMXCClient {
             if (typeof cueIndex !== "number") {
                 throw new Error(`Cue index to check must be number`);
             }
-            const list = this.repo.checkAndGetIdOption(feedback.options);
+            const list = await this.repo.checkAndGetIdOption(feedback.options, ctx.parseVariablesInString);
             switch (cueState) {
                 case "previous":
                     return list.previousIndex == cueIndex;
@@ -598,10 +712,10 @@ export class CuelistClient implements IDMXCClient {
         return { cueProgressState, cueIndex, cueProgress, comparisonOperator };
     }
 
-    private onFeedbackCueProgress(feedback: CompanionFeedbackInfo, _: CompanionCommonCallbackContext): boolean {
+    private async onFeedbackCueProgress(feedback: CompanionFeedbackInfo, ctx: CompanionCommonCallbackContext): Promise<boolean> {
         try {
             const { cueProgressState, cueIndex, cueProgress, comparisonOperator } = this.onFeedbackCueProgressCheckOptions(feedback.options);
-            const list = this.repo.checkAndGetIdOption(feedback.options);
+            const list = await this.repo.checkAndGetIdOption(feedback.options, ctx.parseVariablesInString);
 
             const listProgress = this.cueProgressPerCuelist.get(list.id);
             if (!listProgress) {
@@ -630,9 +744,9 @@ export class CuelistClient implements IDMXCClient {
         }
     }
 
-    private async onFeedbackCueProgressSubscribe(feedback: CompanionFeedbackInfo, _: CompanionCommonCallbackContext) {
+    private async onFeedbackCueProgressSubscribe(feedback: CompanionFeedbackInfo, ctx: CompanionCommonCallbackContext) {
         try {
-            const list = this.repo.checkAndGetIdOption(feedback.options);
+            const list = await this.repo.checkAndGetIdOption(feedback.options, ctx.parseVariablesInString);
             const subscribedFeedbacks = this.progressFeedbacks.get(list.id) ?? new Set();
             if (!this.progressFeedbacks.has(list.id)) {
                 this.progressFeedbacks.set(list.id, subscribedFeedbacks);
@@ -656,9 +770,9 @@ export class CuelistClient implements IDMXCClient {
         }
     }
 
-    private async onFeedbackCueProgressUnsubscribe(feedback: CompanionFeedbackInfo, _: CompanionCommonCallbackContext) {
+    private async onFeedbackCueProgressUnsubscribe(feedback: CompanionFeedbackInfo, ctx: CompanionCommonCallbackContext) {
         try {
-            const list = this.repo.checkAndGetIdOption(feedback.options);
+            const list = await this.repo.checkAndGetIdOption(feedback.options, ctx.parseVariablesInString);
             const subscribedFeedbacks = this.progressFeedbacks.get(list.id);
             this.instance.log("debug", `Feedback ${feedback.id} unsubscribed from ${list.id} progress`);
             if (!subscribedFeedbacks) {
