@@ -19,7 +19,7 @@
 		"@deluxequadrat/dmxc-grpc-client": "^1.0.2"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^2.3.0",
+		"@companion-module/tools": "^2.6.1",
 		"@typescript-eslint/eslint-plugin": "^8.33.0",
 		"@typescript-eslint/parser": "^8.33.0",
 		"eslint": "^9.27.0",
