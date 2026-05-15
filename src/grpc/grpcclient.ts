@@ -148,8 +148,10 @@ export class GRPCClient {
         this.umbraClient.login(
             UmbraLoginRequest.create({ client: this.clientProgramInfo }),
             (error, response) => {
+                instance.log("debug", "Sending login Request to Umbra");
                 if (error) {
                     onError();
+                    instance.log("error", error.message);
                     return;
                 }
                 this.metadata = new GRPC.Metadata();
@@ -177,7 +179,7 @@ export class GRPCClient {
                     }
                 );
                 const stream = this.connectedClient.ping(this.metadata);
-                stream.on("error", (err) => {
+                stream.on("error", (err: Error) => {
                     instance.log("error", "In Ping stream: " + err.message);
                     onError();
                 });
@@ -210,7 +212,10 @@ export class GRPCClient {
                     this.metadata,
                     (error, _) => {
                         if (error) {
-                            instance.log("error", "While binding user: " + error.message);
+                            instance.log(
+                                "error",
+                                "While binding user: " + error.message
+                            );
                             onError();
                             return;
                         }
@@ -246,18 +251,19 @@ export class GRPCClient {
                             this.updateFeedbacks();
 
                             this.clients.forEach((client) => {
-                                client.startClient(
+                                void client.startClient(
                                     this.updatePresets.bind(this),
                                     this.updateActions.bind(this),
                                     this.updateFeedbacks.bind(this),
-                                    this.updateVariables.bind(this),
+                                    this.updateVariables.bind(this)
                                 );
                             });
                         } catch (err) {
+                            const er = err as Error;
                             instance.log(
                                 "error",
                                 "Something died while retrieving changes: " +
-                                ((err as Error)?.message ? (err as Error).message : err)
+                                    er.message
                             );
                             onError();
                         }
@@ -280,9 +286,7 @@ export class GRPCClient {
 
     updateActions() {
         const actions: CompanionActionDefinitions = {};
-        for (const a of this.clients.map((c) =>
-            c.generateActions()
-        )) {
+        for (const a of this.clients.map((c) => c.generateActions())) {
             for (const key in a) {
                 actions[key] = a[key];
             }
@@ -292,9 +296,7 @@ export class GRPCClient {
 
     updateFeedbacks() {
         const feedbacks: CompanionFeedbackDefinitions = {};
-        for (const f of this.clients.map((c) =>
-            c.generateFeedbacks()
-        )) {
+        for (const f of this.clients.map((c) => c.generateFeedbacks())) {
             for (const key in f) {
                 feedbacks[key] = f[key];
             }
@@ -310,9 +312,7 @@ export class GRPCClient {
 
     updateVariables() {
         this.instance.setVariableDefinitions(
-            this.clients
-                .map((c) => c.generateVariables())
-                .flat()
+            this.clients.map((c) => c.generateVariables()).flat()
         );
     }
 
@@ -333,7 +333,10 @@ export class GRPCClient {
             }),
             (error, response) => {
                 if (error) {
-                    instance.log("error", "While logging off: " + error.message);
+                    instance.log(
+                        "error",
+                        "While logging off: " + error.message
+                    );
                     return;
                 }
                 instance.log("debug", response.bye);

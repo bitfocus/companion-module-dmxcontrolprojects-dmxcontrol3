@@ -5,7 +5,12 @@ import { DMXCModuleInstance } from "./main";
 import dgram from "dgram";
 import { GRPCClient } from "./grpc/grpcclient";
 import { UmbraUdpBroadcast } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
-import { CompanionInputFieldDropdown, CompanionInputFieldNumber, CompanionInputFieldTextInput, CompanionOptionValues } from "@companion-module/base";
+import {
+    CompanionInputFieldDropdown,
+    CompanionInputFieldNumber,
+    CompanionInputFieldTextInput,
+    CompanionOptionValues
+} from "@companion-module/base";
 
 export function hashPasswordDMXC(password: string): string {
     let hash = createHash("sha256");
@@ -44,10 +49,11 @@ export function startDiscovery(
             umbraClient = new GRPCClient(
                 rinfo.address,
                 umbraUdpBroadcast.umbraServer?.clientInfo?.umbraPort ??
-                config.port,
+                    config.port,
                 config.devicename,
                 instance
             );
+            instance.log("debug", "Login in to Umbra");
             umbraClient.login(config.netid, instance, errorclose, errorclose);
             client.close();
             success(umbraClient, config);
@@ -76,6 +82,7 @@ export function startDiscovery(
 
     client.bind({ address: "0.0.0.0", port: 17474, exclusive: false }, () => {
         client.addMembership("225.68.67.3");
+        instance.log("debug", "Joined Multicast");
     });
 
     return client;
@@ -83,12 +90,12 @@ export function startDiscovery(
 
 enum NumberVariableFieldType {
     Number = "number",
-    TextVariables = "textinput",
+    TextVariables = "textinput"
 }
 
 /**
  * Generates companion input fields to allow the user to enter a number or specify it using a (variable) expression
- * 
+ *
  * @param label The label for the input field
  * @param min Minimum value the entered number may be (inclusive)
  * @param max Maximum value the entered number may be (inclusive)
@@ -96,7 +103,17 @@ enum NumberVariableFieldType {
  * @param id (Optional) specify the id prefix used for the fields to allow fo multiple instances
  * @returns 3 Companion input fields (choice between number/text, conditional number input, conditional text/expression input)
  */
-export function generateNumberOrVariableField(label: string, min: number, max: number, defaultVal: number, id: string = "numeric"): (CompanionInputFieldDropdown | CompanionInputFieldNumber | CompanionInputFieldTextInput)[] {
+export function generateNumberOrVariableField(
+    label: string,
+    min: number,
+    max: number,
+    defaultVal: number,
+    id = "numeric"
+): (
+    | CompanionInputFieldDropdown
+    | CompanionInputFieldNumber
+    | CompanionInputFieldTextInput
+)[] {
     return [
         {
             type: "dropdown",
@@ -105,8 +122,11 @@ export function generateNumberOrVariableField(label: string, min: number, max: n
             default: NumberVariableFieldType.Number,
             choices: [
                 { id: NumberVariableFieldType.Number, label: "Number input" },
-                { id: NumberVariableFieldType.TextVariables, label: "Text/Variables" },
-            ],
+                {
+                    id: NumberVariableFieldType.TextVariables,
+                    label: "Text/Variables"
+                }
+            ]
         },
         {
             id: `${id}_number`,
@@ -115,7 +135,7 @@ export function generateNumberOrVariableField(label: string, min: number, max: n
             min: min,
             max: max,
             default: defaultVal,
-            isVisibleExpression: `$(options:${id}_type) == "${NumberVariableFieldType.Number}"`,
+            isVisibleExpression: `$(options:${id}_type) == "${NumberVariableFieldType.Number}"`
         },
         {
             id: `${id}_text`,
@@ -124,15 +144,15 @@ export function generateNumberOrVariableField(label: string, min: number, max: n
             default: "",
             isVisibleExpression: `$(options:${id}_type) == "${NumberVariableFieldType.TextVariables}"`,
             useVariables: {
-                local: true,
-            },
-        },
-    ]
+                local: true
+            }
+        }
+    ];
 }
 
 /**
  * Retrieves the numeric value entered in the fields created with `generateNumberOrVariableField`
- * 
+ *
  * @param min Minimum value the entered number may be (inclusive)
  * @param max Maximum value the entered number may be (inclusive)
  * @param options The (full, unmodified) `options` object returned in the event (e.g. in an action) by companion
@@ -141,10 +161,19 @@ export function generateNumberOrVariableField(label: string, min: number, max: n
  * @returns Promise resolving to the entered number
  * @throws Rejects promise if user input isn't a valid finite number within the specified range
  */
-export async function checkAndGetNumberOrVariable(min: number, max: number, options: CompanionOptionValues, parseVariablesInString: (text: string) => Promise<string>, id: string = "numeric"): Promise<number> {
+export async function checkAndGetNumberOrVariable(
+    min: number,
+    max: number,
+    options: CompanionOptionValues,
+    parseVariablesInString: (text: string) => Promise<string>,
+    id = "numeric"
+): Promise<number> {
     const field_type = options[`${id}_type`] as string;
     if (typeof field_type !== "string") {
-        throw new Error("A valid way to input a number must be selected: " + JSON.stringify(options));
+        throw new Error(
+            "A valid way to input a number must be selected: " +
+                JSON.stringify(options)
+        );
     }
     let num: number;
     switch (field_type) {
@@ -152,7 +181,9 @@ export async function checkAndGetNumberOrVariable(min: number, max: number, opti
             num = options[`${id}_number`] as number;
             break;
         case NumberVariableFieldType.TextVariables:
-            const res = await parseVariablesInString(options[`${id}_text`] as string);
+            const res = await parseVariablesInString(
+                options[`${id}_text`] as string
+            );
             console.log("Entered str value:", options[`${id}_text`], res);
             num = parseFloat(res);
             break;
@@ -163,7 +194,9 @@ export async function checkAndGetNumberOrVariable(min: number, max: number, opti
         throw new Error("Make sure you enter a valid, finite number.");
     }
     if (num < min || num > max) {
-        throw new Error(`Entered number ${num} was outside valid range of [${min},${max}]`);
+        throw new Error(
+            `Entered number ${num} was outside valid range of [${min},${max}]`
+        );
     }
     return num;
 }

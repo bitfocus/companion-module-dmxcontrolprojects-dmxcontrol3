@@ -1,8 +1,12 @@
-import { CompanionInputFieldDropdown, CompanionInputFieldTextInput, CompanionOptionValues } from "@companion-module/base";
+import {
+    CompanionInputFieldDropdown,
+    CompanionInputFieldTextInput,
+    CompanionOptionValues
+} from "@companion-module/base";
 
 enum IdNameFieldType {
     Dropdown = "dropdown",
-    TextVariables = "textinput",
+    TextVariables = "textinput"
 }
 
 export class RepositoryBase<T extends { id: string; name: string }> {
@@ -59,12 +63,17 @@ export class RepositoryBase<T extends { id: string; name: string }> {
     /**
      * Generates companion input fields to allow the user to select (dropdown) or enter (text field with valiables)
      * the id of any element in this repository
-     * 
+     *
      * @param label The label for the id input or dropdown field
      * @returns 3 Companion input fields (choice between dropdown/text, conditional dropdown, conditional text input)
      */
-    public generateIdOpion(label: string): (CompanionInputFieldDropdown | CompanionInputFieldTextInput)[] {
-        const allOptions = this.getAll().map(element => ({ id: element.id, label: element.name }));
+    public generateIdOpion(
+        label: string
+    ): (CompanionInputFieldDropdown | CompanionInputFieldTextInput)[] {
+        const allOptions = this.getAll().map((element) => ({
+            id: element.id,
+            label: element.name
+        }));
         return [
             {
                 type: "dropdown",
@@ -73,8 +82,11 @@ export class RepositoryBase<T extends { id: string; name: string }> {
                 default: IdNameFieldType.Dropdown,
                 choices: [
                     { id: IdNameFieldType.Dropdown, label: "Dropdown coice" },
-                    { id: IdNameFieldType.TextVariables, label: "Text/Variables" },
-                ],
+                    {
+                        id: IdNameFieldType.TextVariables,
+                        label: "Text/Variables"
+                    }
+                ]
             },
             {
                 id: "id_or_name_choice",
@@ -83,7 +95,7 @@ export class RepositoryBase<T extends { id: string; name: string }> {
                 choices: allOptions,
                 allowCustom: true,
                 default: allOptions[0]?.id ?? "",
-                isVisibleExpression: `$(options:id_or_name_type) == "${IdNameFieldType.Dropdown}"`,
+                isVisibleExpression: `$(options:id_or_name_type) == "${IdNameFieldType.Dropdown}"`
             },
             {
                 id: "id_or_name_text",
@@ -92,24 +104,30 @@ export class RepositoryBase<T extends { id: string; name: string }> {
                 default: "",
                 isVisibleExpression: `$(options:id_or_name_type) == "${IdNameFieldType.TextVariables}"`,
                 useVariables: {
-                    local: true,
-                },
-            },
+                    local: true
+                }
+            }
         ];
     }
 
     /**
      * Retrieves the selected element from this repository slected using the fields created with `generateIdOpion`
-     * 
+     *
      * @param options The (full, unmodified) `options` object returned in the event (e.g. in an action) by companion
      * @param parseVariablesInString The `parseVariablesInString` in the context (second param) passed to events (e.g. actions)
      * @returns Promise resolving to the selected element
      * @throws Rejects promise if user input couldn't be resolved to an element in this repository
      */
-    public async checkAndGetIdOption(options: CompanionOptionValues, parseVariablesInString: (text: string) => Promise<string>): Promise<T> {
+    public async checkAndGetIdOption(
+        options: CompanionOptionValues,
+        parseVariablesInString: (text: string) => Promise<string>
+    ): Promise<T> {
         const id_type = options?.id_or_name_type as string;
         if (typeof id_type !== "string") {
-            throw new Error("A valid way to input id/name must be selected: " + JSON.stringify(options));
+            throw new Error(
+                "A valid way to input id/name must be selected: " +
+                    JSON.stringify(options)
+            );
         }
         let id: string;
         switch (id_type) {
@@ -117,13 +135,17 @@ export class RepositoryBase<T extends { id: string; name: string }> {
                 id = options.id_or_name_choice as string;
                 break;
             case IdNameFieldType.TextVariables:
-                id = await parseVariablesInString(options.id_or_name_text as string);
+                id = await parseVariablesInString(
+                    options.id_or_name_text as string
+                );
                 break;
             default:
                 throw new Error("Unknown way to input id/name");
         }
         if (typeof id !== "string") {
-            throw new Error("Provided id was not a string. Could not find element.");
+            throw new Error(
+                "Provided id was not a string. Could not find element."
+            );
         }
         const element = this.getSingle(id);
         if (element === undefined) {

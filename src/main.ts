@@ -26,7 +26,7 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
     async init(config: Config) {
         this.config = config;
 
-        this.runtimeid = randomUUID().toString();
+        this.runtimeid = randomUUID();
 
         this.request_id_prefix += `-${randomUUID()}`;
 
