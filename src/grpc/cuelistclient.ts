@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 import * as GRPC from "@grpc/grpc-js";
 import {
+    combineRgb,
     CompanionActionDefinition,
     CompanionActionDefinitions,
     CompanionActionEvent,
@@ -41,7 +42,10 @@ import {
     SetTestParameterValueRequest
 } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
 import { CompanionCommonCallbackContext } from "@companion-module/base/dist/module-api/common";
-import { CueDescriptor, CueProgressStateMessage } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Cue";
+import {
+    CueDescriptor,
+    CueProgressStateMessage
+} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.Cue";
 import {
     checkAndGetNumberOrVariable,
     generateNumberOrVariableField
@@ -278,118 +282,100 @@ export class CuelistClient implements IDMXCClient {
         this.updateActions = updateActions;
         this.updateFeedbacks = updateFeedbacks;
         this.updateVariables = updateVariables;
-        
-            if (this.changeStream == null || this.changeStream.closed) {
-                this.changeStream = this.grpcclient.receiveCuelistChanges(
-                    GetRequest.create({
-                        requestId: this.instance.getRequestId()
-                    }),
-                    this.metadata
-                );
-                this.changeStream.on(
-                    "data",
-                    (response: CuelistChangedMessage) => {
-                        switch (response.changeType) {
-                            case EChangeType.Added:
-                                if (response.cuelistData) {
-                                    this.repo.add(response.cuelistData);
-                                    this.onCuelistAddedRemoved();
-                                }
-                                break;
-                            case EChangeType.Changed:
-                                if (response.cuelistData) {
-                                    this.onReceiveCuelistChanged(
-                                        response.cuelistData
-                                    );
-                                }
-                                break;
-                            case EChangeType.Removed: {
-                                const removedId =
-                                    response.cuelistId ||
-                                    response.cuelistData?.id;
-                                if (removedId) {
-                                    this.repo.remove(removedId);
-                                    this.cueProgressPerCuelist.delete(
-                                        removedId
-                                    );
-                                    this.onCuelistAddedRemoved();
-                                }
-                                break;
-                            }
-                        }
-                    }
-                );
-                this.changeStream.on("error", (error: Error) => {
-                    this.instance.log(
-                        "error",
-                        "In cuelist changes stream: " + error.name
-                    );
-                });
-                this.changeStream.on("close", () => {
-                    this.instance.log(
-                        "warn",
-                        "Cuelist changed stream was closed"
-                    );
-                    if (this.isRunning) {
-                        this.instance.log("warn", "Attempting to reopen");
-                        void this.startClient(
-                            this.updatePresets,
-                            updateActions,
-                            updateFeedbacks,
-                            updateVariables
-                        );
-                    }
-                });
-            } else {
-                this.instance.log(
-                    "info",
-                    "Not opening cuelist changed stream as it seems to be already open"
-                );
-            }
 
-            if (this.progressStream == null || this.progressStream.closed) {
-                // If stream is newly opened, ensure all subscriptions are sent to server by unsubscribing and then resubscribing all
-                this.instance.unsubscribeFeedbacks(
-                    CuelistFeedbacks.CueProgress
-                );
-
-                this.progressStream =
-                    this.grpcclient.receiveCuelistProgressChanges(
-                        this.metadata
-                    );
-                this.progressStream.on(
-                    "data",
-                    (progress: CuelistProgressStateChangeMessage) => {
-                        this.onReceiveProgressChange(progress);
-                    }
-                );
-                this.progressStream.on("close", () => {
-                    this.instance.log(
-                        "warn",
-                        "Cuelist progress stream was closed"
-                    );
-                    if (this.isRunning) {
-                        this.instance.log("warn", "Attempting to reopen");
-                        void this.startClient(
-                            this.updatePresets,
-                            updateActions,
-                            updateFeedbacks,
-                            updateVariables
-                        );
-                    }
-                });
-            } else {
-                this.instance.log(
-                    "info",
-                    "Not opening cuelist progress stream as it seems to be already open"
-                );
-            }
-
-            this.pollInterval ??= setInterval(
-                () => { void this.getAllCuelists(); },
-                CUELIST_POLL_INTERVAL
+        if (this.changeStream == null || this.changeStream.closed) {
+            this.changeStream = this.grpcclient.receiveCuelistChanges(
+                GetRequest.create({
+                    requestId: this.instance.getRequestId()
+                }),
+                this.metadata
             );
-            await this.getAllCuelists();
+            this.changeStream.on("data", (response: CuelistChangedMessage) => {
+                switch (response.changeType) {
+                    case EChangeType.Added:
+                        if (response.cuelistData) {
+                            this.repo.add(response.cuelistData);
+                            this.onCuelistAddedRemoved();
+                        }
+                        break;
+                    case EChangeType.Changed:
+                        if (response.cuelistData) {
+                            this.onReceiveCuelistChanged(response.cuelistData);
+                        }
+                        break;
+                    case EChangeType.Removed: {
+                        const removedId =
+                            response.cuelistId || response.cuelistData?.id;
+                        if (removedId) {
+                            this.repo.remove(removedId);
+                            this.cueProgressPerCuelist.delete(removedId);
+                            this.onCuelistAddedRemoved();
+                        }
+                        break;
+                    }
+                }
+            });
+            this.changeStream.on("error", (error: Error) => {
+                this.instance.log(
+                    "error",
+                    "In cuelist changes stream: " + error.name
+                );
+            });
+            this.changeStream.on("close", () => {
+                this.instance.log("warn", "Cuelist changed stream was closed");
+                if (this.isRunning) {
+                    this.instance.log("warn", "Attempting to reopen");
+                    void this.startClient(
+                        this.updatePresets,
+                        updateActions,
+                        updateFeedbacks,
+                        updateVariables
+                    );
+                }
+            });
+        } else {
+            this.instance.log(
+                "info",
+                "Not opening cuelist changed stream as it seems to be already open"
+            );
+        }
+
+        if (this.progressStream == null || this.progressStream.closed) {
+            // If stream is newly opened, ensure all subscriptions are sent to server by unsubscribing and then resubscribing all
+            this.instance.unsubscribeFeedbacks(CuelistFeedbacks.CueProgress);
+
+            this.progressStream = this.grpcclient.receiveCuelistProgressChanges(
+                this.metadata
+            );
+            this.progressStream.on(
+                "data",
+                (progress: CuelistProgressStateChangeMessage) => {
+                    this.onReceiveProgressChange(progress);
+                }
+            );
+            this.progressStream.on("close", () => {
+                this.instance.log("warn", "Cuelist progress stream was closed");
+                if (this.isRunning) {
+                    this.instance.log("warn", "Attempting to reopen");
+                    void this.startClient(
+                        this.updatePresets,
+                        updateActions,
+                        updateFeedbacks,
+                        updateVariables
+                    );
+                }
+            });
+        } else {
+            this.instance.log(
+                "info",
+                "Not opening cuelist progress stream as it seems to be already open"
+            );
+        }
+
+        this.pollInterval ??= setInterval(() => {
+            void this.getAllCuelists();
+        }, CUELIST_POLL_INTERVAL);
+        await this.getAllCuelists();
         // } catch (err) {
         //     this.instance.log(
         //         "error",
@@ -407,7 +393,7 @@ export class CuelistClient implements IDMXCClient {
                 description:
                     "Set the value of the intensity/fade factor/speed factor slider of a cuelist (Same effect as if executor with fader set to that mode)",
                 options: [
-                    ...this.repo.generateIdOpion("Cuelist ID or name"),
+                    ...this.repo.generateIdOption("Cuelist ID or name"),
                     {
                         id: "slider_to_change",
                         type: "dropdown",
@@ -427,7 +413,7 @@ export class CuelistClient implements IDMXCClient {
                 name: "Cuelist: Run Action",
                 description: "Run an action (e.g. GO, STOP, ...) on a cuelist",
                 options: [
-                    ...this.repo.generateIdOpion("Cuelist ID or name"),
+                    ...this.repo.generateIdOption("Cuelist ID or name"),
                     {
                         id: "actionType",
                         label: "Action Type",
@@ -471,7 +457,7 @@ export class CuelistClient implements IDMXCClient {
                 name: "Cuelist: Set play mode",
                 description: "Set the play mode of the cuelist",
                 options: [
-                    ...this.repo.generateIdOpion("Cuelist ID or name"),
+                    ...this.repo.generateIdOption("Cuelist ID or name"),
                     {
                         id: "play_mode",
                         type: "dropdown",
@@ -501,7 +487,7 @@ export class CuelistClient implements IDMXCClient {
                     type: "boolean",
                     name: "Cuelist: Check state",
                     options: [
-                        ...this.repo.generateIdOpion("Cuelist ID or name"),
+                        ...this.repo.generateIdOption("Cuelist ID or name"),
                         {
                             id: "state",
                             label: "Cuelist state",
@@ -526,7 +512,7 @@ export class CuelistClient implements IDMXCClient {
                     type: "boolean",
                     name: "Cuelist: Previous/Current/Next cue",
                     options: [
-                        ...this.repo.generateIdOpion("Cuelist ID or name"),
+                        ...this.repo.generateIdOption("Cuelist ID or name"),
                         CUE_INDEX_INPUT,
                         {
                             id: "cue_state",
@@ -551,7 +537,7 @@ export class CuelistClient implements IDMXCClient {
                     description:
                         "Check if a cue has reached a certain point in its progress. Adding this feedback will subscribe to the progress of the selected cuelist and add variables for its progress",
                     options: [
-                        ...this.repo.generateIdOpion("Cuelist ID or name"),
+                        ...this.repo.generateIdOption("Cuelist ID or name"),
                         CUE_INDEX_INPUT,
                         {
                             id: "cue_progress_state",
@@ -611,7 +597,63 @@ export class CuelistClient implements IDMXCClient {
         return feedbacks;
     }
     generatePresets(): CompanionPresetDefinitions {
-        return {};
+        const cuelistpresets: CompanionPresetDefinitions = {};
+        for (const cuelist of this.repo.getAll()) {
+            const name = cuelist.name;
+            cuelistpresets[cuelist.id] = {
+                type: "button",
+                category: name,
+                name: "GO",
+                style: {
+                    text: `$(${this.instance.id}:cuelist_${cuelist.id}_name)`,
+                    textExpression: true,
+                    size: "auto",
+                    color: combineRgb(255, 255, 255),
+                    bgcolor: combineRgb(0, 0, 0)
+                },
+                steps: [
+                    {
+                        down: [
+                            {
+                                actionId: CuelistActions.CuelistAction,
+                                options: {
+                                    id_or_name_type: "textinput",
+                                    id_or_name_text: cuelist.id,
+                                    actionType: "GO",
+                                    cue_index: 0
+                                }
+                            }
+                        ],
+                        up: []
+                    }
+                ],
+                feedbacks: [
+                    {
+                        feedbackId: CuelistFeedbacks.CuelistState,
+                        options: {
+                            id_or_name_type: "dropdown",
+                            id_or_name_choice: cuelist.id,
+                            state: "RUNNING"
+                        },
+                        style: {
+                            bgcolor: combineRgb(0, 0x99, 0)
+                        }
+                    },
+                    {
+                        feedbackId: CuelistFeedbacks.CuelistState,
+                        options: {
+                            id_or_name_type: "dropdown",
+                            id_or_name_choice: cuelist.id,
+                            state: "PAUSED"
+                        },
+                        style: {
+                            bgcolor: combineRgb(0x66, 0x66, 0)
+                        }
+                    }
+                ]
+            };
+        }
+        return cuelistpresets;
     }
 
     private setVariables(variables: VariableWithValue[]) {
@@ -628,8 +670,10 @@ export class CuelistClient implements IDMXCClient {
         if (!list) {
             return [];
         }
-        const currCue: CueDescriptor | null = list.index >= 0 ? list.cues[list.index] : null;
-        const nextCue = list.cues[list.nextIndex];
+        const currCue: CueDescriptor | null =
+            list.index >= 0 ? list.cues[list.index] : null;
+        const nextCue: CueDescriptor | null =
+            list.index >= 0 ? list.cues[list.nextIndex] : null;
         const playMode = Object.entries(ESceneListPlayMode).find(
             ([_, modeInt]) => (modeInt as number) == list.playMode
         );
@@ -647,7 +691,7 @@ export class CuelistClient implements IDMXCClient {
             {
                 variableId: `cuelist_${list.id}_nextCue`,
                 name: `Cuelist ${list.name} next cue number`,
-                value: nextCue.cueNumber?.number.join(".") ?? ""
+                value: nextCue?.cueNumber?.number.join(".") ?? ""
             },
             {
                 variableId: `cuelist_${list.id}_intensity`,
@@ -1077,7 +1121,6 @@ export class CuelistClient implements IDMXCClient {
                 comparisonOperator
             } = this.onFeedbackCueProgressCheckOptions(feedback.options);
 
-            
             const list = await this.repo.checkAndGetIdOption(
                 feedback.options,
                 (t) => ctx.parseVariablesInString(t)

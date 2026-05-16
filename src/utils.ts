@@ -177,16 +177,17 @@ export async function checkAndGetNumberOrVariable(
     }
     let num: number;
     switch (field_type) {
-        case NumberVariableFieldType.Number:
+        case NumberVariableFieldType.Number.valueOf():
             num = options[`${id}_number`] as number;
             break;
-        case NumberVariableFieldType.TextVariables:
+        case NumberVariableFieldType.TextVariables.valueOf(): {
             const res = await parseVariablesInString(
                 options[`${id}_text`] as string
             );
             console.log("Entered str value:", options[`${id}_text`], res);
             num = parseFloat(res);
             break;
+        }
         default:
             throw new Error("Unknown way to input a number");
     }

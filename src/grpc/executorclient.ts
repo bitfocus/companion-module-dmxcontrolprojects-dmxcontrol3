@@ -112,7 +112,7 @@ export class ExecutorClient implements IDMXCClient {
                         break;
                 }
             })
-            .on("error", (error) => {
+            .on("error", (error: Error) => {
                 this.instance.log("error", error.name);
             });
     }

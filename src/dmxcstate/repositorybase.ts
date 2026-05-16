@@ -23,7 +23,8 @@ export class RepositoryBase<T extends { id: string; name: string }> {
             this.add(instance as T);
             return;
         }
-        const existing = this.data.get(instance.id)!;
+        const existing = this.data.get(instance.id);
+        if (!existing) return; // Should not be possible since already checked but this silences the linter
         const oldName = existing.name;
         Object.assign(existing, instance);
         if (typeof instance.name === "string" && oldName != instance.name) {
@@ -61,13 +62,13 @@ export class RepositoryBase<T extends { id: string; name: string }> {
     }
 
     /**
-     * Generates companion input fields to allow the user to select (dropdown) or enter (text field with valiables)
+     * Generates companion input fields to allow the user to select (dropdown) or enter (text field with variables)
      * the id of any element in this repository
      *
      * @param label The label for the id input or dropdown field
      * @returns 3 Companion input fields (choice between dropdown/text, conditional dropdown, conditional text input)
      */
-    public generateIdOpion(
+    public generateIdOption(
         label: string
     ): (CompanionInputFieldDropdown | CompanionInputFieldTextInput)[] {
         const allOptions = this.getAll().map((element) => ({
@@ -122,7 +123,7 @@ export class RepositoryBase<T extends { id: string; name: string }> {
         options: CompanionOptionValues,
         parseVariablesInString: (text: string) => Promise<string>
     ): Promise<T> {
-        const id_type = options?.id_or_name_type as string;
+        const id_type = options.id_or_name_type as string;
         if (typeof id_type !== "string") {
             throw new Error(
                 "A valid way to input id/name must be selected: " +
@@ -130,11 +131,12 @@ export class RepositoryBase<T extends { id: string; name: string }> {
             );
         }
         let id: string;
+
         switch (id_type) {
-            case IdNameFieldType.Dropdown:
+            case IdNameFieldType.Dropdown.valueOf():
                 id = options.id_or_name_choice as string;
                 break;
-            case IdNameFieldType.TextVariables:
+            case IdNameFieldType.TextVariables.valueOf():
                 id = await parseVariablesInString(
                     options.id_or_name_text as string
                 );

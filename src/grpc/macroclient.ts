@@ -118,7 +118,7 @@ export class MacroClient implements IDMXCClient {
                     MacroFeedbacks.Image
                 );
             })
-            .on("error", (err) => {
+            .on("error", (err: Error) => {
                 this.instance.log("error", err.name);
             });
     }
