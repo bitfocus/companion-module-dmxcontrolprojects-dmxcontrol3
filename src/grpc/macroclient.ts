@@ -16,6 +16,9 @@ import { MacroClientClient } from '@dmxcontrolprojects/dmxcontrol3-network-inter
 import type { HealthReporter, IDMXCClient } from './idmxcclient.js'
 import {
 	combineRgb,
+	type CompanionActionContext,
+	type CompanionFeedbackContext,
+	type CompanionOptionValues,
 	type CompanionActionDefinition,
 	type CompanionActionDefinitions,
 	type CompanionFeedbackDefinition,
@@ -25,6 +28,9 @@ import {
 } from '@companion-module/base'
 import { RepositoryBase } from '../dmxcstate/repositorybase.js'
 import { callOpts } from '../utils.js'
+
+/** Context shared by action and feedback callbacks (the base type is not exported from @companion-module/base) */
+type CompanionCommonCallbackContext = CompanionActionContext | CompanionFeedbackContext
 
 enum MacroActions {
 	PressButton = 'press_button_macro',
@@ -56,7 +62,13 @@ export class MacroClient implements IDMXCClient {
 		this.grpcclient = new MacroClientClient(endpoint, GRPC.credentials.createInsecure())
 	}
 
-	startClient(updatePresets: () => void): void {
+	startClient(updatePresets: () => void, updateActions: () => void, updateFeedbacks: () => void): void {
+		// The id dropdowns list the repo contents, so actions and feedbacks must be regenerated with the presets
+		const updateDefinitions = () => {
+			updatePresets()
+			updateActions()
+			updateFeedbacks()
+		}
 		this.grpcclient.getMacros(
 			GetMultipleRequest.create({
 				requestId: this.instance.getRequestId(),
@@ -73,7 +85,7 @@ export class MacroClient implements IDMXCClient {
 				response.macros.forEach((macro) => {
 					this.repo.add(macro)
 				})
-				updatePresets()
+				updateDefinitions()
 				this.instance.checkFeedbacks(
 					MacroFeedbacks.ButtonState,
 					MacroFeedbacks.ButtonName,
@@ -91,7 +103,7 @@ export class MacroClient implements IDMXCClient {
 					case EChangeType.Added:
 						if (response.macroData) {
 							this.repo.add(response.macroData)
-							updatePresets()
+							updateDefinitions()
 						}
 						break
 					case EChangeType.Changed:
@@ -102,7 +114,7 @@ export class MacroClient implements IDMXCClient {
 					case EChangeType.Removed:
 						if (response.macroData) {
 							this.repo.remove(response.macroData.id)
-							updatePresets()
+							updateDefinitions()
 						}
 						break
 				}
@@ -120,6 +132,23 @@ export class MacroClient implements IDMXCClient {
 			})
 	}
 
+	/**
+	 * Resolves the macro selected with the fields from `repo.generateIdOption` (dropdown or text with variables).
+	 * Returns undefined if it can't be found; logs the reason when `logErrors` is set (used for actions, not feedbacks).
+	 */
+	private async resolve(
+		options: CompanionOptionValues,
+		ctx: CompanionCommonCallbackContext,
+		logErrors = false,
+	): Promise<MacroDescriptor | undefined> {
+		try {
+			return await this.repo.checkAndGetIdOption(options, async (t) => ctx.parseVariablesInString(t))
+		} catch (err) {
+			if (logErrors) this.instance.log('warn', (err as Error).message)
+			return undefined
+		}
+	}
+
 	generateActions(): CompanionActionDefinitions {
 		const actions: Record<MacroActions, CompanionActionDefinition> = {
 			[MacroActions.PressButton]: {
@@ -133,23 +162,19 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: async (event) => {
-					if (typeof event.options.id !== 'string' || typeof event.options.num !== 'number') return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.num !== 'number') return Promise.resolve()
 
-					const macro = this.repo.getSingle(event.options.id)
+					const macro = await this.resolve(event.options, ctx, true)
 
 					if (macro === undefined) return Promise.resolve()
 
 					const request = MacroSetButtonStateRequest.create({
 						requestId: this.instance.getRequestId(),
 						buttonNumber: event.options.num,
-						macroId: event.options.id,
+						macroId: macro.id,
 						active: true,
 					})
 					this.grpcclient.setMacroButtonState(request, this.metadata, callOpts(), (error, response) => {
@@ -173,23 +198,19 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: async (event) => {
-					if (typeof event.options.id !== 'string' || typeof event.options.num !== 'number') return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.num !== 'number') return Promise.resolve()
 
-					const macro = this.repo.getSingle(event.options.id)
+					const macro = await this.resolve(event.options, ctx, true)
 
 					if (macro === undefined) return Promise.resolve()
 
 					const request = MacroSetButtonStateRequest.create({
 						requestId: this.instance.getRequestId(),
 						buttonNumber: event.options.num,
-						macroId: event.options.id,
+						macroId: macro.id,
 						active: false,
 					})
 					this.grpcclient.setMacroButtonState(request, this.metadata, callOpts(), (error, response) => {
@@ -221,28 +242,19 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: async (event) => {
-					if (
-						typeof event.options.id !== 'string' ||
-						typeof event.options.step !== 'number' ||
-						typeof event.options.num !== 'number'
-					)
-						return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.step !== 'number' || typeof event.options.num !== 'number') return Promise.resolve()
 
-					const macro = this.repo.getSingle(event.options.id)
+					const macro = await this.resolve(event.options, ctx, true)
 
 					if (macro === undefined) return Promise.resolve()
 
 					const request = MacroSetFaderStateRequest.create()
 
 					request.requestId = this.instance.getRequestId()
-					request.macroId = event.options.id
+					request.macroId = macro.id
 					request.faderNumber = event.options.num
 					request.increment = event.options.step / 100
 					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
@@ -274,21 +286,12 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: async (event) => {
-					if (
-						typeof event.options.id !== 'string' ||
-						typeof event.options.step !== 'number' ||
-						typeof event.options.num !== 'number'
-					)
-						return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.step !== 'number' || typeof event.options.num !== 'number') return Promise.resolve()
 
-					const macro = this.repo.getSingle(event.options.id)
+					const macro = await this.resolve(event.options, ctx, true)
 
 					if (macro === undefined) return Promise.resolve()
 
@@ -296,7 +299,7 @@ export class MacroClient implements IDMXCClient {
 
 					request.requestId = this.instance.getRequestId()
 
-					request.macroId = event.options.id
+					request.macroId = macro.id
 					request.faderNumber = event.options.num
 					request.increment = -event.options.step / 100
 					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
@@ -328,21 +331,12 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: async (event) => {
-					if (
-						typeof event.options.id !== 'string' ||
-						typeof event.options.value !== 'number' ||
-						typeof event.options.num !== 'number'
-					)
-						return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.value !== 'number' || typeof event.options.num !== 'number') return Promise.resolve()
 
-					const macro = this.repo.getSingle(event.options.id)
+					const macro = await this.resolve(event.options, ctx, true)
 
 					if (macro === undefined) return Promise.resolve()
 
@@ -350,7 +344,7 @@ export class MacroClient implements IDMXCClient {
 
 					request.requestId = this.instance.getRequestId()
 
-					request.macroId = event.options.id
+					request.macroId = macro.id
 					request.faderNumber = event.options.num
 					request.absolut = event.options.value / 100
 					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
@@ -384,15 +378,11 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: (feedback) => {
-					if (typeof feedback.options.id !== 'string' || typeof feedback.options.num !== 'number') return false
-					const macro = this.repo.getSingle(feedback.options.id)
+				callback: async (feedback, ctx) => {
+					if (typeof feedback.options.num !== 'number') return false
+					const macro = await this.resolve(feedback.options, ctx)
 					if (macro === undefined) return false
 					return macro.buttons[feedback.options.num - 1].active
 				},
@@ -409,15 +399,11 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: (feedback) => {
-					if (typeof feedback.options.id !== 'string' || typeof feedback.options.num !== 'number') return { text: '' }
-					const macro = this.repo.getSingle(feedback.options.id)
+				callback: async (feedback, ctx) => {
+					if (typeof feedback.options.num !== 'number') return { text: '' }
+					const macro = await this.resolve(feedback.options, ctx)
 					if (macro === undefined) return { text: '' }
 					return {
 						text: macro.buttons[feedback.options.num - 1].label,
@@ -436,15 +422,11 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: (feedback) => {
-					if (typeof feedback.options.id !== 'string' || typeof feedback.options.num !== 'number') return { text: '' }
-					const macro = this.repo.getSingle(feedback.options.id)
+				callback: async (feedback, ctx) => {
+					if (typeof feedback.options.num !== 'number') return { text: '' }
+					const macro = await this.resolve(feedback.options, ctx)
 					if (macro === undefined) return { text: '' }
 					return {
 						text: macro.faders[feedback.options.num - 1].label,
@@ -463,15 +445,11 @@ export class MacroClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Macro ID or Name'),
 				],
-				callback: (feedback) => {
-					if (typeof feedback.options.id !== 'string' || typeof feedback.options.num !== 'number') return { text: '' }
-					const macro = this.repo.getSingle(feedback.options.id)
+				callback: async (feedback, ctx) => {
+					if (typeof feedback.options.num !== 'number') return { text: '' }
+					const macro = await this.resolve(feedback.options, ctx)
 					if (macro === undefined) return { text: '' }
 					return {
 						text: `${(macro.faders[feedback.options.num - 1].faderPosition * 100).toFixed(0)}%`,
@@ -481,20 +459,12 @@ export class MacroClient implements IDMXCClient {
 			[MacroFeedbacks.Image]: {
 				name: 'Macro Image',
 				type: 'advanced',
-				options: [
-					{
-						id: 'macroid',
-						type: 'textinput',
-						label: 'Macro ID or Name',
-					},
-				],
-				callback: (feedback) => {
-					if (typeof feedback.options.macroid === 'string') {
-						const image = this.repo.getSingle(feedback.options.macroid)?.bitmap
-						if (image) {
-							const base64 = Buffer.from(image).toString('base64')
-							return { png64: base64, show_topbar: false }
-						}
+				options: [...this.repo.generateIdOption('Macro ID or Name')],
+				callback: async (feedback, ctx) => {
+					const image = (await this.resolve(feedback.options, ctx))?.bitmap
+					if (image) {
+						const base64 = Buffer.from(image).toString('base64')
+						return { png64: base64, show_topbar: false }
 					}
 					return {}
 				},
@@ -524,7 +494,8 @@ export class MacroClient implements IDMXCClient {
 								{
 									actionId: MacroActions.PressButton,
 									options: {
-										id: macro.name,
+										id_or_name_type: 'dropdown',
+										id_or_name_choice: macro.id,
 										num: button.number,
 									},
 								},
@@ -533,7 +504,8 @@ export class MacroClient implements IDMXCClient {
 								{
 									actionId: MacroActions.ReleaseButton,
 									options: {
-										id: macro.name,
+										id_or_name_type: 'dropdown',
+										id_or_name_choice: macro.id,
 										num: button.number,
 									},
 								},
@@ -544,7 +516,8 @@ export class MacroClient implements IDMXCClient {
 						{
 							feedbackId: MacroFeedbacks.ButtonState,
 							options: {
-								id: macro.name,
+								id_or_name_type: 'dropdown',
+								id_or_name_choice: macro.id,
 								num: button.number,
 							},
 							style: {
@@ -554,7 +527,8 @@ export class MacroClient implements IDMXCClient {
 						{
 							feedbackId: MacroFeedbacks.ButtonName,
 							options: {
-								id: macro.name,
+								id_or_name_type: 'dropdown',
+								id_or_name_choice: macro.id,
 								num: button.number,
 							},
 						},
@@ -583,7 +557,8 @@ export class MacroClient implements IDMXCClient {
 								{
 									actionId: MacroActions.DecrementFader,
 									options: {
-										id: macro.name,
+										id_or_name_type: 'dropdown',
+										id_or_name_choice: macro.id,
 										num: fader.number,
 										step: 5,
 									},
@@ -593,7 +568,8 @@ export class MacroClient implements IDMXCClient {
 								{
 									actionId: MacroActions.IncrementFader,
 									options: {
-										id: macro.name,
+										id_or_name_type: 'dropdown',
+										id_or_name_choice: macro.id,
 										num: fader.number,
 										step: 5,
 									},
@@ -605,7 +581,8 @@ export class MacroClient implements IDMXCClient {
 						{
 							feedbackId: MacroFeedbacks.FaderState,
 							options: {
-								id: macro.name,
+								id_or_name_type: 'dropdown',
+								id_or_name_choice: macro.id,
 								num: fader.number,
 							},
 							style: {
@@ -630,7 +607,8 @@ export class MacroClient implements IDMXCClient {
 								{
 									actionId: MacroActions.IncrementFader,
 									options: {
-										id: macro.name,
+										id_or_name_type: 'dropdown',
+										id_or_name_choice: macro.id,
 										num: fader.number,
 										step: 5,
 									},
@@ -657,7 +635,8 @@ export class MacroClient implements IDMXCClient {
 								{
 									actionId: MacroActions.DecrementFader,
 									options: {
-										id: macro.name,
+										id_or_name_type: 'dropdown',
+										id_or_name_choice: macro.id,
 										num: fader.number,
 										step: 5,
 									},

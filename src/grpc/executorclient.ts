@@ -15,6 +15,9 @@ import {
 import type { HealthReporter, IDMXCClient } from './idmxcclient.js'
 import {
 	combineRgb,
+	type CompanionActionContext,
+	type CompanionFeedbackContext,
+	type CompanionOptionValues,
 	type CompanionActionDefinition,
 	type CompanionActionDefinitions,
 	type CompanionFeedbackDefinition,
@@ -24,6 +27,9 @@ import {
 } from '@companion-module/base'
 import { RepositoryBase } from '../dmxcstate/repositorybase.js'
 import { callOpts } from '../utils.js'
+
+/** Context shared by action and feedback callbacks (the base type is not exported from @companion-module/base) */
+type CompanionCommonCallbackContext = CompanionActionContext | CompanionFeedbackContext
 
 enum ExecutorActions {
 	PressButton = 'press_button_executor',
@@ -55,7 +61,13 @@ export class ExecutorClient implements IDMXCClient {
 		this.grpcclient = new ExecutorClientClient(endpoint, GRPC.credentials.createInsecure())
 	}
 
-	startClient(updatePresets: () => void): void {
+	startClient(updatePresets: () => void, updateActions: () => void, updateFeedbacks: () => void): void {
+		// The id dropdowns list the repo contents, so actions and feedbacks must be regenerated with the presets
+		const updateDefinitions = () => {
+			updatePresets()
+			updateActions()
+			updateFeedbacks()
+		}
 		this.grpcclient.getExecutors(
 			GetMultipleRequest.create({
 				requestId: this.instance.getRequestId(),
@@ -72,7 +84,7 @@ export class ExecutorClient implements IDMXCClient {
 				response.executors.forEach((executor) => {
 					this.repo.add(executor)
 				})
-				updatePresets()
+				updateDefinitions()
 				this.instance.checkFeedbacks(
 					ExecutorFeedbacks.ButtonName,
 					ExecutorFeedbacks.ButtonState,
@@ -91,7 +103,7 @@ export class ExecutorClient implements IDMXCClient {
 				switch (response.changeType) {
 					case EChangeType.Added:
 						if (response.executorData) this.repo.add(response.executorData)
-						updatePresets()
+						updateDefinitions()
 						break
 					case EChangeType.Changed:
 						if (response.executorData) this.repo.add(response.executorData)
@@ -104,7 +116,7 @@ export class ExecutorClient implements IDMXCClient {
 						break
 					case EChangeType.Removed:
 						if (response.executorData) this.repo.remove(response.executorData.id)
-						updatePresets()
+						updateDefinitions()
 						break
 				}
 			})
@@ -112,6 +124,23 @@ export class ExecutorClient implements IDMXCClient {
 				this.instance.log('error', 'Executor change stream: ' + error.message)
 				this.health.degraded('executors-stream', 'Executor updates lost')
 			})
+	}
+
+	/**
+	 * Resolves the executor selected with the fields from `repo.generateIdOption` (dropdown or text with variables).
+	 * Returns undefined if it can't be found; logs the reason when `logErrors` is set (used for actions, not feedbacks).
+	 */
+	private async resolve(
+		options: CompanionOptionValues,
+		ctx: CompanionCommonCallbackContext,
+		logErrors = false,
+	): Promise<ExecutorDescriptor | undefined> {
+		try {
+			return await this.repo.checkAndGetIdOption(options, async (t) => ctx.parseVariablesInString(t))
+		} catch (err) {
+			if (logErrors) this.instance.log('warn', (err as Error).message)
+			return undefined
+		}
 	}
 
 	generateActions(): CompanionActionDefinitions {
@@ -127,16 +156,12 @@ export class ExecutorClient implements IDMXCClient {
 						min: 1,
 						max: 4,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Executor ID or Name'),
 				],
-				callback: async (event) => {
-					if (typeof event.options.id !== 'string' || typeof event.options.num !== 'number') return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.num !== 'number') return Promise.resolve()
 
-					const executor = this.repo.getSingle(event.options.id)
+					const executor = await this.resolve(event.options, ctx, true)
 
 					if (executor === undefined) return Promise.resolve()
 
@@ -182,16 +207,12 @@ export class ExecutorClient implements IDMXCClient {
 						min: 1,
 						max: 4,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Executor ID or Name'),
 				],
-				callback: async (event) => {
-					if (typeof event.options.id !== 'string' || typeof event.options.num !== 'number') return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.num !== 'number') return Promise.resolve()
 
-					const executor = this.repo.getSingle(event.options.id)
+					const executor = await this.resolve(event.options, ctx, true)
 
 					if (executor === undefined) return Promise.resolve()
 
@@ -237,16 +258,12 @@ export class ExecutorClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Executor ID or Name'),
 				],
-				callback: async (event) => {
-					if (typeof event.options.id !== 'string' || typeof event.options.step !== 'number') return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.step !== 'number') return Promise.resolve()
 
-					const executor = this.repo.getSingle(event.options.id)
+					const executor = await this.resolve(event.options, ctx, true)
 
 					if (executor === undefined) return Promise.resolve()
 
@@ -277,16 +294,12 @@ export class ExecutorClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Executor ID or Name'),
 				],
-				callback: async (event) => {
-					if (typeof event.options.id !== 'string' || typeof event.options.step !== 'number') return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.step !== 'number') return Promise.resolve()
 
-					const executor = this.repo.getSingle(event.options.id)
+					const executor = await this.resolve(event.options, ctx, true)
 
 					if (executor === undefined) return Promise.resolve()
 
@@ -317,16 +330,12 @@ export class ExecutorClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Executor ID or Name'),
 				],
-				callback: async (event) => {
-					if (typeof event.options.id !== 'string' || typeof event.options.value !== 'number') return Promise.resolve()
+				callback: async (event, ctx) => {
+					if (typeof event.options.value !== 'number') return Promise.resolve()
 
-					const executor = this.repo.getSingle(event.options.id)
+					const executor = await this.resolve(event.options, ctx, true)
 
 					if (executor === undefined) return Promise.resolve()
 
@@ -368,15 +377,11 @@ export class ExecutorClient implements IDMXCClient {
 						min: 1,
 						max: 100,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Executor ID or Name'),
 				],
-				callback: (feedback) => {
-					if (typeof feedback.options.id !== 'string' || typeof feedback.options.num !== 'number') return false
-					const executor = this.repo.getSingle(feedback.options.id)
+				callback: async (feedback, ctx) => {
+					if (typeof feedback.options.num !== 'number') return false
+					const executor = await this.resolve(feedback.options, ctx)
 					if (executor === undefined) return false
 					switch (feedback.options.num) {
 						case 1:
@@ -403,15 +408,11 @@ export class ExecutorClient implements IDMXCClient {
 						min: 1,
 						max: 4,
 					},
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
+					...this.repo.generateIdOption('Executor ID or Name'),
 				],
-				callback: (feedback) => {
-					if (typeof feedback.options.id !== 'string' || typeof feedback.options.num !== 'number') return { text: '' }
-					const executor = this.repo.getSingle(feedback.options.id)
+				callback: async (feedback, ctx) => {
+					if (typeof feedback.options.num !== 'number') return { text: '' }
+					const executor = await this.resolve(feedback.options, ctx)
 					if (executor === undefined) return { text: '' }
 					let name = ''
 					switch (feedback.options.num) {
@@ -434,16 +435,9 @@ export class ExecutorClient implements IDMXCClient {
 			[ExecutorFeedbacks.FaderState]: {
 				name: 'Executor Fader State',
 				type: 'advanced',
-				options: [
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
-				],
-				callback: (feedback) => {
-					if (typeof feedback.options.id !== 'string') return { text: '' }
-					const executor = this.repo.getSingle(feedback.options.id)
+				options: [...this.repo.generateIdOption('Executor ID or Name')],
+				callback: async (feedback, ctx) => {
+					const executor = await this.resolve(feedback.options, ctx)
 					if (executor === undefined) return { text: '' }
 					return {
 						text: `${(executor.faderPosition * 100).toFixed(0)}%`,
@@ -451,18 +445,11 @@ export class ExecutorClient implements IDMXCClient {
 				},
 			},
 			[ExecutorFeedbacks.FaderName]: {
-				name: 'Executor Fader State',
+				name: 'Executor Fader Name',
 				type: 'advanced',
-				options: [
-					{
-						id: 'id',
-						type: 'textinput',
-						label: 'ID or Name',
-					},
-				],
-				callback: (feedback) => {
-					if (typeof feedback.options.id !== 'string') return { text: '' }
-					const executor = this.repo.getSingle(feedback.options.id)
+				options: [...this.repo.generateIdOption('Executor ID or Name')],
+				callback: async (feedback, ctx) => {
+					const executor = await this.resolve(feedback.options, ctx)
 					if (executor === undefined) return { text: '' }
 					return {
 						text: executor.faderDisplayName || executor.faderKey,
@@ -492,7 +479,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.PressButton,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									num: 1,
 								},
 							},
@@ -501,7 +489,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.ReleaseButton,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									num: 1,
 								},
 							},
@@ -512,7 +501,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.ButtonState,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 							num: 1,
 						},
 						style: {
@@ -522,7 +512,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.ButtonName,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 							num: 1,
 						},
 					},
@@ -544,7 +535,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.PressButton,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									num: 2,
 								},
 							},
@@ -553,7 +545,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.ReleaseButton,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									num: 2,
 								},
 							},
@@ -564,7 +557,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.ButtonState,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 							num: 2,
 						},
 						style: {
@@ -574,7 +568,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.ButtonName,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 							num: 2,
 						},
 					},
@@ -596,7 +591,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.PressButton,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									num: 3,
 								},
 							},
@@ -605,7 +601,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.ReleaseButton,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									num: 3,
 								},
 							},
@@ -616,7 +613,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.ButtonState,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 							num: 3,
 						},
 						style: {
@@ -626,7 +624,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.ButtonName,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 							num: 3,
 						},
 					},
@@ -648,7 +647,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.PressButton,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									num: 4,
 								},
 							},
@@ -657,7 +657,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.ReleaseButton,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									num: 4,
 								},
 							},
@@ -668,7 +669,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.ButtonState,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 							num: 4,
 						},
 						style: {
@@ -678,7 +680,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.ButtonName,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 							num: 4,
 						},
 					},
@@ -705,7 +708,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.DecrementFader,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									step: 5,
 								},
 							},
@@ -714,7 +718,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.IncrementFader,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									step: 5,
 								},
 							},
@@ -725,7 +730,8 @@ export class ExecutorClient implements IDMXCClient {
 					{
 						feedbackId: ExecutorFeedbacks.FaderState,
 						options: {
-							id: executor.name,
+							id_or_name_type: 'dropdown',
+							id_or_name_choice: executor.id,
 						},
 					},
 				],
@@ -746,7 +752,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.IncrementFader,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									step: 5,
 								},
 							},
@@ -772,7 +779,8 @@ export class ExecutorClient implements IDMXCClient {
 							{
 								actionId: ExecutorActions.DecrementFader,
 								options: {
-									id: executor.name,
+									id_or_name_type: 'dropdown',
+									id_or_name_choice: executor.id,
 									step: 5,
 								},
 							},
