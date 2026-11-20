@@ -134,3 +134,11 @@ src/generated
 
 # Ignore packaging output
 pkg
+# Companion module template
+package-lock.json
+/pkg
+/*.tgz
+/dist
+DEBUG-*
+/.yarn
+/.vscode

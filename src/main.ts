@@ -1,127 +1,142 @@
-import {
-    InstanceBase,
-    runEntrypoint,
-    InstanceStatus
-} from "@companion-module/base";
-import { UpgradeScripts } from "./upgrades";
-import { Config, configFields } from "./config";
-import { GRPCClient } from "./grpc/grpcclient";
-import { startDiscovery } from "./utils";
-import { randomUUID } from "crypto";
-import dgram from "dgram";
+import { InstanceBase, runEntrypoint, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
+import { UpgradeScripts } from './upgrades.js'
+import { type Config, configFields } from './config.js'
+import { GRPCClient } from './grpc/grpcclient.js'
+import { closeSocket, startDiscovery } from './utils.js'
+import { randomUUID } from 'crypto'
+import dgram from 'dgram'
+
+/** Delay before restarting discovery after a connection error, to avoid a tight loop while the server is down */
+const RECONNECT_DELAY_MS = 2000
 
 export class DMXCModuleInstance extends InstanceBase<Config> {
-    public config?: Config;
+	public config?: Config
 
-    public UmbraClient?: GRPCClient;
+	public UmbraClient?: GRPCClient
 
-    public runtimeid = "";
+	public runtimeid = ''
 
-    public socket: dgram.Socket | undefined;
+	public socket: dgram.Socket | undefined
 
-    private request_id_prefix = "WonWon";
+	private request_id_prefix = 'WonWon'
 
-    private request_id_num = 0;
+	private request_id_num = 0
 
-    async init(config: Config) {
-        this.config = config;
+	/** Incremented for every new connection attempt so late error/close events from an old client are ignored */
+	private connectionGeneration = 0
 
-        this.runtimeid = randomUUID();
+	private reconnecting = false
 
-        this.request_id_prefix += `-${randomUUID()}`;
+	private reconnectTimer?: NodeJS.Timeout
 
-        this.updateStatus(InstanceStatus.Connecting);
+	private destroyed = false
 
-        if (config.disablediscovery) {
-            this.UmbraClient = new GRPCClient(
-                config.host,
-                config.port,
-                config.devicename,
-                this
-            );
-            this.UmbraClient.login(
-                config.netid,
-                this,
-                () => {
-                    this.updateStatus(InstanceStatus.Disconnected);
-                },
-                () => {
-                    this.updateStatus(InstanceStatus.ConnectionFailure);
-                }
-            );
-        } else {
-            this.socket = startDiscovery(
-                config,
-                this,
-                (client, config) => {
-                    this.UmbraClient = client;
-                    this.saveConfig(config);
-                },
-                () => {
-                    this.errorhandler();
-                }
-            );
-        }
+	async init(config: Config): Promise<void> {
+		this.config = config
 
-        return Promise.resolve();
-    }
+		this.runtimeid = randomUUID()
 
-    errorhandler(): void {
-        this.updateStatus(InstanceStatus.Disconnected);
-        if (this.UmbraClient) {
-            this.UmbraClient.destroy(this, () => {
-                if (this.config) {
-                    this.socket = startDiscovery(
-                        this.config,
-                        this,
-                        (client) => {
-                            this.UmbraClient = client;
-                        },
-                        () => {
-                            this.errorhandler();
-                        }
-                    );
-                }
-            });
-        }
-    }
+		this.request_id_prefix += `-${randomUUID()}`
 
-    async destroy(): Promise<void> {
-        this.log("debug", "destroy");
-        return new Promise((resolve, _) => {
-            this.UmbraClient?.destroy(this, () => {
-                resolve();
-            });
-        });
-    }
+		this.updateStatus(InstanceStatus.Connecting)
 
-    async configUpdated(config: Config): Promise<void> {
-        if (this.config?.netid && this.config.netid !== config.netid) {
-            this.log(
-                "debug",
-                `netid changed from ${this.config.netid} to ${config.netid}`
-            );
-            if (this.socket) {
-                this.log(
-                    "debug",
-                    `closing socket ${this.socket.address().address}:${this.socket.address().port}`
-                );
-                this.socket.close();
-                this.socket = undefined;
-            }
-        }
-        this.log("debug", `configUpdated: ${JSON.stringify(config, null, 2)}`);
-        this.config = config;
-        return Promise.resolve();
-    }
+		if (config.disablediscovery) {
+			this.UmbraClient = new GRPCClient(config.host, config.port, config.devicename, this)
+			this.UmbraClient.login(
+				config.netid,
+				this,
+				(message) => {
+					this.updateStatus(InstanceStatus.Disconnected, message)
+				},
+				(message) => {
+					this.updateStatus(InstanceStatus.ConnectionFailure, message)
+				},
+			)
+		} else {
+			this.discover()
+		}
 
-    getRequestId(): string {
-        return `${this.request_id_prefix}-${this.request_id_num++}`;
-    }
+		return Promise.resolve()
+	}
 
-    getConfigFields() {
-        return configFields();
-    }
+	/**
+	 * Starts a new discovery, closing any previous discovery socket first.
+	 */
+	private discover(): void {
+		if (!this.config || this.destroyed) return
+		closeSocket(this.socket)
+		const generation = ++this.connectionGeneration
+		this.socket = startDiscovery(
+			this.config,
+			this,
+			(client, config) => {
+				this.UmbraClient = client
+				this.saveConfig(config)
+			},
+			(message) => {
+				this.errorhandler(generation, message)
+			},
+		)
+	}
+
+	/**
+	 * Tears down the current connection and restarts discovery after a short delay.
+	 * Ignores calls from outdated connections and calls while a reconnect is already in progress,
+	 * since one failure typically fires several callbacks (ping stream error + end, bind error, ...).
+	 */
+	errorhandler(generation: number, message?: string): void {
+		if (this.destroyed || this.reconnecting || generation !== this.connectionGeneration) return
+		this.reconnecting = true
+		this.updateStatus(InstanceStatus.Disconnected, message ? `${message} – reconnecting` : 'Reconnecting')
+
+		const restart = () => {
+			this.UmbraClient = undefined
+			closeSocket(this.socket)
+			this.socket = undefined
+			this.reconnectTimer = setTimeout(() => {
+				this.reconnectTimer = undefined
+				this.reconnecting = false
+				this.discover()
+			}, RECONNECT_DELAY_MS)
+		}
+
+		if (this.UmbraClient) this.UmbraClient.destroy(this, restart)
+		else restart()
+	}
+
+	async destroy(): Promise<void> {
+		this.log('debug', 'destroy')
+		this.destroyed = true
+		clearTimeout(this.reconnectTimer)
+		closeSocket(this.socket)
+		this.socket = undefined
+		const client = this.UmbraClient
+		this.UmbraClient = undefined
+		if (!client) return
+		await new Promise<void>((resolve) => client.destroy(this, resolve))
+	}
+
+	async configUpdated(config: Config): Promise<void> {
+		if (this.config?.netid && this.config.netid !== config.netid) {
+			this.log('debug', `netid changed from ${this.config.netid} to ${config.netid}`)
+			if (this.socket) {
+				this.log('debug', 'closing discovery socket')
+				closeSocket(this.socket)
+				this.socket = undefined
+			}
+		}
+		this.log('debug', `configUpdated: ${JSON.stringify(config, null, 2)}`)
+		this.config = config
+		return Promise.resolve()
+	}
+
+	getRequestId(): string {
+		return `${this.request_id_prefix}-${this.request_id_num++}`
+	}
+
+	getConfigFields(): SomeCompanionConfigField[] {
+		return configFields()
+	}
 }
 
-runEntrypoint(DMXCModuleInstance, UpgradeScripts());
+runEntrypoint(DMXCModuleInstance, UpgradeScripts())

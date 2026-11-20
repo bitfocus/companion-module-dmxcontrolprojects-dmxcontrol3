@@ -43,7 +43,7 @@ It enables seamless integration between Companion and DMXControl, allowing you t
 - **Check state**: Indicates if the cuelist has the selected (STOPPED, PAUSED, RUNNING) state
 - **Previous/Current/Next cue**: Indicates if the cue (specified by 0 based index) is currently the previous/current/next cue
 - **Cue progress reached**: Indicates if the progress (bar in progress columne) of the cue (specified by 0 based index) reaches the selected state and value
-    - _Note_: This enables the progress updates for the selected cuelist. This will add the `cuelist_[LIST_ID]_cue_[CUE_INDEX]_[...]` variables for all cues of the cuelist.
+  - _Note_: This enables the progress updates for the selected cuelist. This will add the `cuelist_[LIST_ID]_cue_[CUE_INDEX]_[...]` variables for all cues of the cuelist.
 
 ## Supported variables
 
@@ -70,9 +70,9 @@ Per cue per cuelist (ONLY IF at least 1 `Cue progress reached` feedback exists f
 
 - `cuelist_[LIST_ID]_cue_[CUE_INDEX]_state`: The numeric state(s) of the cue (see below), ORed together
 - `cuelist_[LIST_ID]_cue_[CUE_INDEX]_stateStr`: The state(s) of the cue as string (joined by "|"), empty of none
-    - States (with numeric values): Preparing = 0x1, Prepared = 0x2, Waiting = 0x4, Fading = 0x8, Playing = 0x10, Played = 0x20, Stopping = 0x40, Stopped = 0x80
+  - States (with numeric values): Preparing = 0x1, Prepared = 0x2, Waiting = 0x4, Fading = 0x8, Playing = 0x10, Played = 0x20, Stopping = 0x40, Stopped = 0x80
 - `cuelist_[LIST_ID]_cue_[CUE_INDEX]_progress`: Progress of cue (between 0 and 1), value of progress bar in progress column.
-    - When waiting/following/delay, fading in, fading out (outgoing/decreasing)
+  - When waiting/following/delay, fading in, fading out (outgoing/decreasing)
 - `cuelist_[LIST_ID]_cue_[CUE_INDEX]_msToWait`: Time in ms until cue is triggered
 - `cuelist_[LIST_ID]_cue_[CUE_INDEX]_fadeTimeLeft`: Time in ms left in fade (only incoming, not outgoing)
 - `cuelist_[LIST_ID]_cue_[CUE_INDEX]_delayTimeLeft`: Time in ms left in pre delay

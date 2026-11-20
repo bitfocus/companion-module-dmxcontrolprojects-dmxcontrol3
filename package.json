@@ -2,31 +2,51 @@
 	"name": "dmxcontrolprojects-dmxcontrol3",
 	"version": "1.2.0",
 	"main": "dist/main.js",
+	"type": "module",
 	"scripts": {
+		"postinstall": "husky",
 		"format": "prettier -w .",
-		"lint": "eslint --ext .ts .",
-		"build": "tsc -p tsconfig.build.json",
-		"package": "yarn build && yarn companion-module-build",
-		"package:dev": "yarn build && yarn companion-module-build --dev"
+		"package": "run build && companion-module-build",
+		"package:dev": "run build && companion-module-build --dev",
+		"build": "rimraf dist && run build:main",
+		"build:main": "tsc -p tsconfig.build.json",
+		"dev": "tsc -p tsconfig.build.json --watch",
+		"lint:raw": "eslint",
+		"lint": "run lint:raw ."
 	},
 	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/bitfocus/companion-module-dmxcontrolprojects-dmxcontrol3.git"
 	},
+	"engines": {
+		"node": "^26",
+		"yarn": "^4"
+	},
 	"dependencies": {
-		"@companion-module/base": "~1.15.1",
-		"@deluxequadrat/dmxc-grpc-client": "^1.0.2"
+		"@companion-module/base": "~1.12.0",
+		"@dmxcontrolprojects/dmxcontrol3-network-interface": "^3.3.3",
+		"@grpc/grpc-js": "^1.14.7"
 	},
 	"devDependencies": {
 		"@companion-module/tools": "^2.9.1",
-		"@stylistic/eslint-plugin": "^4.4.0",
-		"@typescript-eslint/eslint-plugin": "^8.33.0",
-		"@typescript-eslint/parser": "^8.33.0",
-		"eslint": "^9.27.0",
-		"eslint-config-prettier": "^10.1.0",
-		"prettier": "^3.5.3",
-		"typescript": "^5.8.3"
+		"@types/node": "^26.6.4",
+		"eslint": "^9.39.2",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.2.7",
+		"prettier": "^3.7.4",
+		"rimraf": "^6.1.2",
+		"typescript": "~6.0.3",
+		"typescript-eslint": "^8.51.0"
 	},
-	"packageManager": "yarn@4.13.0"
+	"prettier": "@companion-module/tools/.prettierrc.json",
+	"lint-staged": {
+		"*.{css,json,md,scss}": [
+			"prettier --write"
+		],
+		"*.{ts,tsx,js,jsx}": [
+			"yarn lint:raw --fix"
+		]
+	},
+	"packageManager": "yarn@4.18.1"
 }
