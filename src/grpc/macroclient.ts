@@ -319,7 +319,7 @@ export class MacroClient implements IDMXCClient {
 				callback: async (event) => {
 					if (
 						typeof event.options.id !== 'string' ||
-						typeof event.options.step !== 'number' ||
+						typeof event.options.value !== 'number' ||
 						typeof event.options.num !== 'number'
 					)
 						return Promise.resolve()
@@ -334,7 +334,7 @@ export class MacroClient implements IDMXCClient {
 
 					request.macroId = event.options.id
 					request.faderNumber = event.options.num
-					request.absolut = event.options.step / 100
+					request.absolut = event.options.value / 100
 					this.grpcclient.setMacroFaderState(request, this.metadata, (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
