@@ -45,6 +45,7 @@ export class GRPCClient {
 	private interval?: NodeJS.Timeout
 
 	private clients: IDMXCClient[]
+	private userclient?: UserClientClient
 
 	constructor(
 		host: string,
@@ -169,7 +170,9 @@ export class GRPCClient {
 			})
 			this.interval = setInterval(() => stream.write(PingPong.create()), 10000)
 
-			new UserClientClient(this.endpoint, GRPC.credentials.createInsecure()).bind(
+			this.userclient = new UserClientClient(this.endpoint, GRPC.credentials.createInsecure())
+
+			this.userclient.bind(
 				UserContextRequest.create({
 					requestId: this.instance.getRequestId(),
 					username: instance.config?.username ?? 'DMXCDefault',
@@ -260,6 +263,7 @@ export class GRPCClient {
 		this.clients.forEach((val, _) => {
 			val.close()
 		})
+		this.userclient?.close()
 		clearInterval(this.interval)
 		this.umbraClient.logoff(
 			UmbraLogoffRequest.create({
