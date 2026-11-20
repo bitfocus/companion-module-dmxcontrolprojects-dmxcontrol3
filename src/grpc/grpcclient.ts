@@ -8,7 +8,7 @@ import {
 	type CompanionPresetDefinitions,
 	InstanceStatus,
 } from '@companion-module/base'
-import { hashPasswordDMXC } from '../utils.js'
+import { callOpts, hashPasswordDMXC } from '../utils.js'
 import { MacroClient } from './macroclient.js'
 import { ExecutorClient } from './executorclient.js'
 import {
@@ -116,13 +116,15 @@ export class GRPCClient {
 				requestId: requestid,
 				info: this.getClientProgramInfo(devicename, runtimeid),
 			}),
+			new GRPC.Metadata(),
+			callOpts(),
 			(error, response) => {
+				client.close()
 				if (error) {
 					console.error(error)
 					return
 				}
 				callback(response)
-				client.close()
 			},
 		)
 	}
@@ -132,88 +134,95 @@ export class GRPCClient {
 			this.clientProgramInfo.clientInfo.networkid = netid
 			this.clientProgramInfo.clientTimestampUTC = new Date().valueOf()
 		}
-		this.umbraClient.login(UmbraLoginRequest.create({ client: this.clientProgramInfo }), (error, response) => {
-			instance.log('debug', 'Sending login Request to Umbra')
-			if (error) {
-				onError()
-				instance.log('error', error.message)
-				return
-			}
-			this.metadata = new GRPC.Metadata()
-			this.metadata.add('SessionID', response.sessionId)
-			this.connectedClient = new ConnectedClientServiceClient(this.endpoint, GRPC.credentials.createInsecure())
-			this.connectedClient.reportReadyToWork(
-				UmbraClientReadyToWorkNotification.create({
-					state: ReadyToWorkState.create({ readyToWork: true }),
-				}),
-				this.metadata,
-				(error, response) => {
-					if (error) {
-						onError()
-						return
-					}
-					this.instance.log('debug', response.message?.formatString ?? '')
-					if (response.ok) instance.updateStatus(InstanceStatus.Ok)
-				},
-			)
-			const stream = this.connectedClient.ping(this.metadata)
-			stream.on('error', (err: Error) => {
-				instance.log('error', 'In Ping stream: ' + err.message)
-				onError()
-			})
-			stream.on('data', (data: PingPong) => {
-				instance.log('debug', `${data.clientname}: ${data.responder}`)
-			})
-			stream.on('end', () => {
-				instance.log('debug', 'stream end')
-				onClose()
-			})
-			this.interval = setInterval(() => stream.write(PingPong.create()), 10000)
+		this.umbraClient.login(
+			UmbraLoginRequest.create({ client: this.clientProgramInfo }),
+			new GRPC.Metadata(),
+			callOpts(),
+			(error, response) => {
+				instance.log('debug', 'Sending login Request to Umbra')
+				if (error) {
+					onError()
+					instance.log('error', error.message)
+					return
+				}
+				this.metadata = new GRPC.Metadata()
+				this.metadata.add('SessionID', response.sessionId)
+				this.connectedClient = new ConnectedClientServiceClient(this.endpoint, GRPC.credentials.createInsecure())
+				this.connectedClient.reportReadyToWork(
+					UmbraClientReadyToWorkNotification.create({
+						state: ReadyToWorkState.create({ readyToWork: true }),
+					}),
+					this.metadata,
+					callOpts(),
+					(error, response) => {
+						if (error) {
+							onError()
+							return
+						}
+						this.instance.log('debug', response.message?.formatString ?? '')
+						if (response.ok) instance.updateStatus(InstanceStatus.Ok)
+					},
+				)
+				const stream = this.connectedClient.ping(this.metadata)
+				stream.on('error', (err: Error) => {
+					instance.log('error', 'In Ping stream: ' + err.message)
+					onError()
+				})
+				stream.on('data', (data: PingPong) => {
+					instance.log('debug', `${data.clientname}: ${data.responder}`)
+				})
+				stream.on('end', () => {
+					instance.log('debug', 'stream end')
+					onClose()
+				})
+				this.interval = setInterval(() => stream.write(PingPong.create()), 10000)
 
-			this.userclient = new UserClientClient(this.endpoint, GRPC.credentials.createInsecure())
+				this.userclient = new UserClientClient(this.endpoint, GRPC.credentials.createInsecure())
 
-			this.userclient.bind(
-				UserContextRequest.create({
-					requestId: this.instance.getRequestId(),
-					username: instance.config?.username ?? 'DMXCDefault',
-					passwordHash: hashPasswordDMXC(instance.config?.password ?? 'DMXC3'),
-				}),
-				this.metadata,
-				(error, _) => {
-					if (error) {
-						instance.log('error', 'While binding user: ' + error.message)
-						onError()
-						return
-					}
-					if (!this.metadata) {
-						instance.log('error', 'Metadata not set')
-						return
-					}
+				this.userclient.bind(
+					UserContextRequest.create({
+						requestId: this.instance.getRequestId(),
+						username: instance.config?.username ?? 'DMXCDefault',
+						passwordHash: hashPasswordDMXC(instance.config?.password ?? 'DMXC3'),
+					}),
+					this.metadata,
+					callOpts(),
+					(error, _) => {
+						if (error) {
+							instance.log('error', 'While binding user: ' + error.message)
+							onError()
+							return
+						}
+						if (!this.metadata) {
+							instance.log('error', 'Metadata not set')
+							return
+						}
 
-					try {
-						this.clients.push(new ExecutorClient(this.endpoint, this.metadata, instance))
-						this.clients.push(new MacroClient(this.endpoint, this.metadata, instance))
-						this.clients.push(new CuelistClient(this.endpoint, this.metadata, instance))
+						try {
+							this.clients.push(new ExecutorClient(this.endpoint, this.metadata, instance))
+							this.clients.push(new MacroClient(this.endpoint, this.metadata, instance))
+							this.clients.push(new CuelistClient(this.endpoint, this.metadata, instance))
 
-						this.updateActions()
-						this.updateFeedbacks()
+							this.updateActions()
+							this.updateFeedbacks()
 
-						this.clients.forEach((client) => {
-							void client.startClient(
-								this.updatePresets.bind(this),
-								this.updateActions.bind(this),
-								this.updateFeedbacks.bind(this),
-								this.updateVariables.bind(this),
-							)
-						})
-					} catch (err) {
-						const er = err as Error
-						instance.log('error', 'Something died while retrieving changes: ' + er.message)
-						onError()
-					}
-				},
-			)
-		})
+							this.clients.forEach((client) => {
+								void client.startClient(
+									this.updatePresets.bind(this),
+									this.updateActions.bind(this),
+									this.updateFeedbacks.bind(this),
+									this.updateVariables.bind(this),
+								)
+							})
+						} catch (err) {
+							const er = err as Error
+							instance.log('error', 'Something died while retrieving changes: ' + er.message)
+							onError()
+						}
+					},
+				)
+			},
+		)
 	}
 
 	updatePresets(): void {
@@ -270,6 +279,8 @@ export class GRPCClient {
 				client: this.clientProgramInfo,
 				// sessionId: this.metadata?.get('SessionID')[0].toString(),
 			}),
+			new GRPC.Metadata(),
+			callOpts(),
 			(error, response) => {
 				if (error) {
 					instance.log('error', 'While logging off: ' + error.message)

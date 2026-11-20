@@ -46,7 +46,7 @@ import {
 	CueDescriptor,
 	CueProgressStateMessage,
 } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf.Cue'
-import { checkAndGetNumberOrVariable, generateNumberOrVariableField } from '../utils.js'
+import { callOpts, checkAndGetNumberOrVariable, generateNumberOrVariableField } from '../utils.js'
 
 /** Context shared by action and feedback callbacks (the base type is not exported from @companion-module/base) */
 type CompanionCommonCallbackContext = CompanionActionContext | CompanionFeedbackContext
@@ -222,6 +222,7 @@ export class CuelistClient implements IDMXCClient {
 					requestId: this.instance.getRequestId(),
 				}),
 				this.metadata,
+				callOpts(),
 
 				(err, res) => (err != null ? reject(err) : resolve(res)),
 			),
@@ -317,15 +318,15 @@ export class CuelistClient implements IDMXCClient {
 		}
 
 		this.pollInterval ??= setInterval(() => {
-			void this.getAllCuelists()
+			this.getAllCuelists().catch((err: Error) => {
+				this.instance.log('error', 'While polling cuelists: ' + err.message)
+			})
 		}, CUELIST_POLL_INTERVAL)
-		await this.getAllCuelists()
-		// } catch (err) {
-		//     this.instance.log(
-		//         "error",
-		//         "While getting cuelists: " + (err as GRPC.ServiceError).message
-		//     );
-		// }
+		try {
+			await this.getAllCuelists()
+		} catch (err) {
+			this.instance.log('error', 'While getting cuelists: ' + (err as Error).message)
+		}
 	}
 
 	generateActions(): CompanionActionDefinitions {
@@ -749,6 +750,7 @@ export class CuelistClient implements IDMXCClient {
 						speedFactor: event.options.slider_to_change == 'speed' ? value / 100 : undefined,
 					}),
 					this.metadata,
+					callOpts(),
 					(err, res) => {
 						if (err != null) reject(err)
 						else resolve(res)
@@ -792,6 +794,7 @@ export class CuelistClient implements IDMXCClient {
 						index: ACTIONS_REQUIRING_CUE_INDEX.includes(action) ? cueIndex : 0,
 					}),
 					this.metadata,
+					callOpts(),
 					(err, res) => {
 						if (err != null) reject(err)
 						else resolve(res)
@@ -828,6 +831,7 @@ export class CuelistClient implements IDMXCClient {
 						nameFilter: ['PlayMode'],
 					}),
 					this.metadata,
+					callOpts(),
 					(err, res) => {
 						if (err != null) reject(err)
 						else resolve(res)
@@ -856,6 +860,7 @@ export class CuelistClient implements IDMXCClient {
 						value: value.ienum?.fallback ?? value.obj,
 					}),
 					this.metadata,
+					callOpts(),
 					(err, res) => {
 						if (err != null) reject(err)
 						else resolve(res)

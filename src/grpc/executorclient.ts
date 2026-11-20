@@ -12,17 +12,18 @@ import {
 	ExecutorDescriptor,
 	SetExecutorValuesRequest,
 } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf.Executor'
-import { IDMXCClient } from './idmxcclient.js'
+import type { IDMXCClient } from './idmxcclient.js'
 import {
 	combineRgb,
-	CompanionActionDefinition,
-	CompanionActionDefinitions,
-	CompanionFeedbackDefinition,
-	CompanionFeedbackDefinitions,
-	CompanionPresetDefinitions,
-	CompanionVariableDefinition,
+	type CompanionActionDefinition,
+	type CompanionActionDefinitions,
+	type CompanionFeedbackDefinition,
+	type CompanionFeedbackDefinitions,
+	type CompanionPresetDefinitions,
+	type CompanionVariableDefinition,
 } from '@companion-module/base'
 import { RepositoryBase } from '../dmxcstate/repositorybase.js'
+import { callOpts } from '../utils.js'
 
 enum ExecutorActions {
 	PressButton = 'press_button_executor',
@@ -59,6 +60,7 @@ export class ExecutorClient implements IDMXCClient {
 				requestId: this.instance.getRequestId(),
 			}),
 			this.metadata,
+			callOpts(),
 			(error, response) => {
 				if (error) {
 					this.instance.log('error', error.message)
@@ -155,7 +157,7 @@ export class ExecutorClient implements IDMXCClient {
 						default:
 							break
 					}
-					this.grpcclient.setExecutorValues(request, this.metadata, (error, response) => {
+					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
@@ -207,7 +209,7 @@ export class ExecutorClient implements IDMXCClient {
 						default:
 							break
 					}
-					this.grpcclient.setExecutorValues(request, this.metadata, (error, response) => {
+					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
@@ -244,7 +246,7 @@ export class ExecutorClient implements IDMXCClient {
 
 					request.executorId = executor.id
 					request.faderIncrement = event.options.step / 100
-					this.grpcclient.setExecutorValues(request, this.metadata, (error, response) => {
+					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
@@ -281,7 +283,7 @@ export class ExecutorClient implements IDMXCClient {
 
 					request.executorId = executor.id
 					request.faderIncrement = -event.options.step / 100
-					this.grpcclient.setExecutorValues(request, this.metadata, (error, response) => {
+					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
@@ -318,7 +320,7 @@ export class ExecutorClient implements IDMXCClient {
 
 					request.executorId = executor.id
 					request.faderAbsolut = event.options.value / 100
-					this.grpcclient.setExecutorValues(request, this.metadata, (error, response) => {
+					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)

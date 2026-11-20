@@ -3,14 +3,30 @@ import type { Config } from './config.js'
 import { DMXCModuleInstance } from './main.js'
 
 import dgram from 'dgram'
+import type { CallOptions } from '@grpc/grpc-js'
 import { GRPCClient } from './grpc/grpcclient.js'
 import { UmbraUdpBroadcast } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf'
-import type {
-	CompanionInputFieldDropdown,
-	CompanionInputFieldNumber,
-	CompanionInputFieldTextInput,
-	CompanionOptionValues,
+import {
+	InstanceStatus,
+	type CompanionInputFieldDropdown,
+	type CompanionInputFieldNumber,
+	type CompanionInputFieldTextInput,
+	type CompanionOptionValues,
 } from '@companion-module/base'
+
+/** Default timeout for unary gRPC calls */
+export const RPC_TIMEOUT_MS = 5000
+
+/** Time to wait for a discovery broadcast with the configured NetID before reporting a failure */
+export const DISCOVERY_TIMEOUT_MS = 15000
+
+/**
+ * Call options for unary gRPC calls, so a hung server makes the call fail with DEADLINE_EXCEEDED
+ * instead of leaving it pending forever. Do not use for long-lived streams.
+ */
+export function callOpts(timeoutMs = RPC_TIMEOUT_MS): Partial<CallOptions> {
+	return { deadline: Date.now() + timeoutMs }
+}
 
 export function hashPasswordDMXC(password: string): string {
 	let hash = createHash('sha256')
@@ -32,6 +48,17 @@ export function startDiscovery(
 
 	let umbraClient
 
+	// Report a failure if no server with the configured NetID shows up. The socket stays open,
+	// so the module still connects once the server appears.
+	const discoveryTimeout = setTimeout(() => {
+		instance.log('warn', `No DMXControl server with NetID "${config.netid}" found within ${DISCOVERY_TIMEOUT_MS} ms`)
+		instance.updateStatus(InstanceStatus.ConnectionFailure, `No server with NetID "${config.netid}" found`)
+	}, DISCOVERY_TIMEOUT_MS)
+
+	client.on('close', () => {
+		clearTimeout(discoveryTimeout)
+	})
+
 	client.on('error', (err) => {
 		instance.log('error', `UDP client error:\n${err.stack}`)
 		client.close()
@@ -46,6 +73,8 @@ export function startDiscovery(
 			`UDP client got message from ${rinfo.address}:${rinfo.port}: ${clientInfo?.hostname}:${clientInfo?.clientname}:${clientInfo?.networkid}`,
 		)
 		if (netid === config.netid) {
+			clearTimeout(discoveryTimeout)
+			instance.updateStatus(InstanceStatus.Connecting)
 			umbraClient = new GRPCClient(
 				rinfo.address,
 				umbraUdpBroadcast.umbraServer?.clientInfo?.umbraPort ?? config.port,

@@ -24,6 +24,7 @@ import {
 	type CompanionVariableDefinition,
 } from '@companion-module/base'
 import { RepositoryBase } from '../dmxcstate/repositorybase.js'
+import { callOpts } from '../utils.js'
 
 enum MacroActions {
 	PressButton = 'press_button_macro',
@@ -60,6 +61,7 @@ export class MacroClient implements IDMXCClient {
 				requestId: this.instance.getRequestId(),
 			}),
 			this.metadata,
+			callOpts(),
 			(error, response) => {
 				if (error) {
 					this.instance.log('error', error.message)
@@ -146,7 +148,7 @@ export class MacroClient implements IDMXCClient {
 						macroId: event.options.id,
 						active: true,
 					})
-					this.grpcclient.setMacroButtonState(request, this.metadata, (error, response) => {
+					this.grpcclient.setMacroButtonState(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
@@ -183,7 +185,7 @@ export class MacroClient implements IDMXCClient {
 						macroId: event.options.id,
 						active: false,
 					})
-					this.grpcclient.setMacroButtonState(request, this.metadata, (error, response) => {
+					this.grpcclient.setMacroButtonState(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
@@ -233,7 +235,7 @@ export class MacroClient implements IDMXCClient {
 					request.macroId = event.options.id
 					request.faderNumber = event.options.num
 					request.increment = event.options.step / 100
-					this.grpcclient.setMacroFaderState(request, this.metadata, (error, response) => {
+					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error setting Macrofader: ${response.message?.formatString ?? ''}`)
@@ -284,7 +286,7 @@ export class MacroClient implements IDMXCClient {
 					request.macroId = event.options.id
 					request.faderNumber = event.options.num
 					request.increment = -event.options.step / 100
-					this.grpcclient.setMacroFaderState(request, this.metadata, (error, response) => {
+					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error setting Macrofader: ${response.message?.formatString ?? ''}`)
@@ -335,7 +337,7 @@ export class MacroClient implements IDMXCClient {
 					request.macroId = event.options.id
 					request.faderNumber = event.options.num
 					request.absolut = event.options.value / 100
-					this.grpcclient.setMacroFaderState(request, this.metadata, (error, response) => {
+					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
 						if (error) this.instance.log('error', error.message)
 						if (!response.ok)
 							this.instance.log('error', `Error setting Macrofader: ${response.message?.formatString ?? ''}`)
