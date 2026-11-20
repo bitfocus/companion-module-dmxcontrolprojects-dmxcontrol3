@@ -305,6 +305,13 @@ export class CuelistClient implements IDMXCClient {
 					void this.startClient(this.updatePresets, updateActions, updateFeedbacks, updateVariables)
 				}
 			})
+			this.progressStream.on('error', (err) => {
+				this.instance.log('error', 'cuelist progress stream: ' + err.message)
+				if (this.isRunning) {
+					this.instance.log('warn', 'Attempting to reopen')
+					void this.startClient(this.updatePresets, updateActions, updateFeedbacks, updateVariables)
+				}
+			})
 		} else {
 			this.instance.log('info', 'Not opening cuelist progress stream as it seems to be already open')
 		}
