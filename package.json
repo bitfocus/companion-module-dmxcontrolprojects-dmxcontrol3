@@ -24,7 +24,7 @@
 		"yarn": "^4"
 	},
 	"dependencies": {
-		"@companion-module/base": "~1.12.0",
+		"@companion-module/base": "~1.15.1",
 		"@dmxcontrolprojects/dmxcontrol3-network-interface": "^3.3.3",
 		"@grpc/grpc-js": "^1.14.7"
 	},
