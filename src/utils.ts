@@ -38,6 +38,18 @@ export function hashPasswordDMXC(password: string): string {
 	return hash.update(start).digest('base64')
 }
 
+/**
+ * Closes a UDP socket, ignoring the error dgram throws when the socket is already closed.
+ */
+export function closeSocket(socket: dgram.Socket | undefined): void {
+	if (!socket) return
+	try {
+		socket.close()
+	} catch {
+		// already closed
+	}
+}
+
 export function startDiscovery(
 	config: Config,
 	instance: DMXCModuleInstance,
@@ -59,9 +71,11 @@ export function startDiscovery(
 		clearTimeout(discoveryTimeout)
 	})
 
+	let found = false
+
 	client.on('error', (err) => {
 		instance.log('error', `UDP client error:\n${err.stack}`)
-		client.close()
+		closeSocket(client)
 	})
 
 	client.on('message', (msg, rinfo) => {
@@ -73,6 +87,9 @@ export function startDiscovery(
 			`UDP client got message from ${rinfo.address}:${rinfo.port}: ${clientInfo?.hostname}:${clientInfo?.clientname}:${clientInfo?.networkid}`,
 		)
 		if (netid === config.netid) {
+			// Ignore broadcasts that were already queued when the first match closed the socket
+			if (found) return
+			found = true
 			clearTimeout(discoveryTimeout)
 			instance.updateStatus(InstanceStatus.Connecting)
 			umbraClient = new GRPCClient(
@@ -83,7 +100,7 @@ export function startDiscovery(
 			)
 			instance.log('debug', 'Login in to Umbra')
 			umbraClient.login(config.netid, instance, errorclose, errorclose)
-			client.close()
+			closeSocket(client)
 			success(umbraClient, config)
 		} else {
 			const port = umbraUdpBroadcast.umbraServer?.clientInfo?.umbraPort ?? 17475

@@ -269,7 +269,7 @@ export class GRPCClient {
 
 	public destroy(instance: DMXCModuleInstance, after: () => void): void {
 		this.connectedClient?.close()
-		this.clients.forEach((val, _) => {
+		this.clients.forEach((val) => {
 			val.close()
 		})
 		this.userclient?.close()
@@ -282,11 +282,9 @@ export class GRPCClient {
 			new GRPC.Metadata(),
 			callOpts(),
 			(error, response) => {
-				if (error) {
-					instance.log('error', 'While logging off: ' + error.message)
-					return
-				}
-				instance.log('debug', response.bye)
+				// Always finish teardown: logoff usually fails exactly when we are tearing down because the server is gone
+				if (error) instance.log('warn', 'While logging off: ' + error.message)
+				else instance.log('debug', response.bye)
 				this.umbraClient.close()
 				after()
 			},

@@ -2,9 +2,12 @@ import { InstanceBase, runEntrypoint, InstanceStatus, type SomeCompanionConfigFi
 import { UpgradeScripts } from './upgrades.js'
 import { type Config, configFields } from './config.js'
 import { GRPCClient } from './grpc/grpcclient.js'
-import { startDiscovery } from './utils.js'
+import { closeSocket, startDiscovery } from './utils.js'
 import { randomUUID } from 'crypto'
 import dgram from 'dgram'
+
+/** Delay before restarting discovery after a connection error, to avoid a tight loop while the server is down */
+const RECONNECT_DELAY_MS = 2000
 
 export class DMXCModuleInstance extends InstanceBase<Config> {
 	public config?: Config
@@ -18,6 +21,15 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 	private request_id_prefix = 'WonWon'
 
 	private request_id_num = 0
+
+	/** Incremented for every new connection attempt so late error/close events from an old client are ignored */
+	private connectionGeneration = 0
+
+	private reconnecting = false
+
+	private reconnectTimer?: NodeJS.Timeout
+
+	private destroyed = false
 
 	async init(config: Config): Promise<void> {
 		this.config = config
@@ -41,57 +53,75 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 				},
 			)
 		} else {
-			this.socket = startDiscovery(
-				config,
-				this,
-				(client, config) => {
-					this.UmbraClient = client
-					this.saveConfig(config)
-				},
-				() => {
-					this.errorhandler()
-				},
-			)
+			this.discover()
 		}
 
 		return Promise.resolve()
 	}
 
-	errorhandler(): void {
+	/**
+	 * Starts a new discovery, closing any previous discovery socket first.
+	 */
+	private discover(): void {
+		if (!this.config || this.destroyed) return
+		closeSocket(this.socket)
+		const generation = ++this.connectionGeneration
+		this.socket = startDiscovery(
+			this.config,
+			this,
+			(client, config) => {
+				this.UmbraClient = client
+				this.saveConfig(config)
+			},
+			() => {
+				this.errorhandler(generation)
+			},
+		)
+	}
+
+	/**
+	 * Tears down the current connection and restarts discovery after a short delay.
+	 * Ignores calls from outdated connections and calls while a reconnect is already in progress,
+	 * since one failure typically fires several callbacks (ping stream error + end, bind error, ...).
+	 */
+	errorhandler(generation: number): void {
+		if (this.destroyed || this.reconnecting || generation !== this.connectionGeneration) return
+		this.reconnecting = true
 		this.updateStatus(InstanceStatus.Disconnected)
-		if (this.UmbraClient) {
-			this.UmbraClient.destroy(this, () => {
-				if (this.config) {
-					this.socket = startDiscovery(
-						this.config,
-						this,
-						(client) => {
-							this.UmbraClient = client
-						},
-						() => {
-							this.errorhandler()
-						},
-					)
-				}
-			})
+
+		const restart = () => {
+			this.UmbraClient = undefined
+			closeSocket(this.socket)
+			this.socket = undefined
+			this.reconnectTimer = setTimeout(() => {
+				this.reconnectTimer = undefined
+				this.reconnecting = false
+				this.discover()
+			}, RECONNECT_DELAY_MS)
 		}
+
+		if (this.UmbraClient) this.UmbraClient.destroy(this, restart)
+		else restart()
 	}
 
 	async destroy(): Promise<void> {
 		this.log('debug', 'destroy')
-		return new Promise((resolve, _) => {
-			this.UmbraClient?.destroy(this, () => {
-				resolve()
-			})
-		})
+		this.destroyed = true
+		clearTimeout(this.reconnectTimer)
+		closeSocket(this.socket)
+		this.socket = undefined
+		const client = this.UmbraClient
+		this.UmbraClient = undefined
+		if (!client) return
+		await new Promise<void>((resolve) => client.destroy(this, resolve))
 	}
 
 	async configUpdated(config: Config): Promise<void> {
 		if (this.config?.netid && this.config.netid !== config.netid) {
 			this.log('debug', `netid changed from ${this.config.netid} to ${config.netid}`)
 			if (this.socket) {
-				this.log('debug', `closing socket ${this.socket.address().address}:${this.socket.address().port}`)
-				this.socket.close()
+				this.log('debug', 'closing discovery socket')
+				closeSocket(this.socket)
 				this.socket = undefined
 			}
 		}
