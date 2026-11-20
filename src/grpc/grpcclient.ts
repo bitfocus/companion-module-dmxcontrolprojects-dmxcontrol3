@@ -1,348 +1,280 @@
-import * as GRPC from "@grpc/grpc-js";
-import * as OS from "os";
+import * as GRPC from '@grpc/grpc-js'
+import * as OS from 'os'
 
-import { DMXCModuleInstance } from "../main";
+import { DMXCModuleInstance } from '../main.js'
 import {
-    CompanionActionDefinitions,
-    CompanionFeedbackDefinitions,
-    CompanionPresetDefinitions,
-    InstanceStatus
-} from "@companion-module/base";
-import { hashPasswordDMXC } from "../utils";
-import { MacroClient } from "./macroclient";
-import { ExecutorClient } from "./executorclient";
+	type CompanionActionDefinitions,
+	type CompanionFeedbackDefinitions,
+	type CompanionPresetDefinitions,
+	InstanceStatus,
+} from '@companion-module/base'
+import { hashPasswordDMXC } from '../utils.js'
+import { MacroClient } from './macroclient.js'
+import { ExecutorClient } from './executorclient.js'
 import {
-    ClientServiceClient,
-    ConnectedClientServiceClient,
-    DMXCNetServiceClient
-} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufCommon";
+	ClientServiceClient,
+	ConnectedClientServiceClient,
+	DMXCNetServiceClient,
+} from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobufCommon'
 import {
-    ClientInfo,
-    ClientProgramInfo,
-    EClientType,
-    InformClientExistsRequest,
-    InformClientExistsResponse,
-    PingPong,
-    ProgramInfo,
-    ReadyToWorkState,
-    UmbraClientReadyToWorkNotification,
-    UmbraLoginRequest,
-    UmbraLogoffRequest
-} from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf";
-import { UserContextRequest } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobuf.User";
-import { UserClientClient } from "@deluxequadrat/dmxc-grpc-client/dist/index.LumosProtobufClient";
-import { IDMXCClient } from "./idmxcclient";
-import { CuelistClient } from "./cuelistclient";
+	ClientInfo,
+	ClientProgramInfo,
+	EClientType,
+	InformClientExistsRequest,
+	InformClientExistsResponse,
+	PingPong,
+	ProgramInfo,
+	ReadyToWorkState,
+	UmbraClientReadyToWorkNotification,
+	UmbraLoginRequest,
+	UmbraLogoffRequest,
+} from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf'
+import { UserContextRequest } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf.User'
+import { UserClientClient } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobufClient'
+import type { IDMXCClient } from './idmxcclient.js'
+import { CuelistClient } from './cuelistclient.js'
 
 export class GRPCClient {
-    private umbraClient: ClientServiceClient;
-    private clientProgramInfo: ClientProgramInfo;
-    private connectedClient?: ConnectedClientServiceClient;
-    private endpoint: string;
+	private umbraClient: ClientServiceClient
+	private clientProgramInfo: ClientProgramInfo
+	private connectedClient?: ConnectedClientServiceClient
+	private endpoint: string
 
-    private metadata?: GRPC.Metadata;
+	private metadata?: GRPC.Metadata
 
-    private interval?: NodeJS.Timeout;
+	private interval?: NodeJS.Timeout
 
-    private clients: IDMXCClient[];
+	private clients: IDMXCClient[]
 
-    constructor(
-        host: string,
-        port: number,
-        deviceName: string,
-        private instance: DMXCModuleInstance
-    ) {
-        this.endpoint = `${host}:${port}`;
+	constructor(
+		host: string,
+		port: number,
+		deviceName: string,
+		private instance: DMXCModuleInstance,
+	) {
+		this.endpoint = `${host}:${port}`
 
-        this.umbraClient = new ClientServiceClient(
-            `${host}:${port}`,
-            GRPC.credentials.createInsecure()
-        );
+		this.umbraClient = new ClientServiceClient(`${host}:${port}`, GRPC.credentials.createInsecure())
 
-        this.clientProgramInfo = GRPCClient.getClientProgramInfo(
-            deviceName,
-            instance.runtimeid
-        );
+		this.clientProgramInfo = GRPCClient.getClientProgramInfo(deviceName, instance.runtimeid)
 
-        this.clients = [];
+		this.clients = []
 
-        this.instance = instance;
-    }
+		this.instance = instance
+	}
 
-    public static getClientProgramInfo(
-        deviceName: string,
-        runtimeid: string,
-        timestamp: number = new Date().valueOf()
-    ): ClientProgramInfo {
-        const clientProgramInfo = ClientProgramInfo.create();
+	public static getClientProgramInfo(
+		deviceName: string,
+		runtimeid: string,
+		timestamp: number = new Date().valueOf(),
+	): ClientProgramInfo {
+		const clientProgramInfo = ClientProgramInfo.create()
 
-        const programInfo = ProgramInfo.create();
-        programInfo.programmName = deviceName;
-        programInfo.programVersion = "1.0.0";
-        programInfo.vendor = "DMXControl Projects e.V.";
-        programInfo.buildDate = new Date().valueOf();
+		const programInfo = ProgramInfo.create()
+		programInfo.programName = deviceName
+		programInfo.programVersion = '1.0.0'
+		programInfo.vendor = 'DMXControl Projects e.V.'
+		programInfo.buildDate = new Date().valueOf()
 
-        const ips = [];
+		const ips = []
 
-        for (const [_, interfaces] of Object.entries(OS.networkInterfaces())) {
-            if (!interfaces) continue;
-            for (const inter of interfaces) {
-                if (!inter.internal) ips.push(inter.address);
-            }
-        }
+		for (const interfaces of Object.values(OS.networkInterfaces())) {
+			if (!interfaces) continue
+			for (const inter of interfaces) {
+				if (!inter.internal) ips.push(inter.address)
+			}
+		}
 
-        const clientInfo = ClientInfo.create();
-        clientInfo.hostname = OS.hostname();
-        clientInfo.ips = ips;
-        clientInfo.type = EClientType.ExternalTool;
-        clientInfo.clientname = deviceName;
-        clientInfo.clientCapabilities = 0;
-        clientInfo.runtimeid = runtimeid;
+		const clientInfo = ClientInfo.create()
+		clientInfo.hostname = OS.hostname()
+		clientInfo.ips = ips
+		clientInfo.type = EClientType.ExternalTool
+		clientInfo.clientname = deviceName
+		clientInfo.clientCapabilities = 0
+		clientInfo.runtimeid = runtimeid
 
-        clientProgramInfo.clientInfo = clientInfo;
-        clientProgramInfo.programInfo = programInfo;
+		clientProgramInfo.clientInfo = clientInfo
+		clientProgramInfo.programInfo = programInfo
 
-        clientProgramInfo.clientTimestampUTC = timestamp;
+		clientProgramInfo.clientTimestampUTC = timestamp
 
-        return clientProgramInfo;
-    }
+		return clientProgramInfo
+	}
 
-    public static clientExists(
-        host: string,
-        port: number,
-        devicename: string,
-        runtimeid: string,
-        requestid: string,
-        callback: (response: InformClientExistsResponse) => void
-    ) {
-        const client = new DMXCNetServiceClient(
-            `${host}:${port}`,
-            GRPC.credentials.createInsecure()
-        );
-        client.informClientExists(
-            InformClientExistsRequest.create({
-                requestId: requestid,
-                info: this.getClientProgramInfo(devicename, runtimeid)
-            }),
-            (error, response) => {
-                if (error) {
-                    console.error(error);
-                    return;
-                }
-                callback(response);
-                client.close();
-            }
-        );
-    }
+	public static clientExists(
+		host: string,
+		port: number,
+		devicename: string,
+		runtimeid: string,
+		requestid: string,
+		callback: (response: InformClientExistsResponse) => void,
+	): void {
+		const client = new DMXCNetServiceClient(`${host}:${port}`, GRPC.credentials.createInsecure())
+		client.informClientExists(
+			InformClientExistsRequest.create({
+				requestId: requestid,
+				info: this.getClientProgramInfo(devicename, runtimeid),
+			}),
+			(error, response) => {
+				if (error) {
+					console.error(error)
+					return
+				}
+				callback(response)
+				client.close()
+			},
+		)
+	}
 
-    public login(
-        netid: string,
-        instance: DMXCModuleInstance,
-        onClose: () => void,
-        onError: () => void
-    ) {
-        if (this.clientProgramInfo.clientInfo) {
-            this.clientProgramInfo.clientInfo.networkid = netid;
-            this.clientProgramInfo.clientTimestampUTC = new Date().valueOf();
-        }
-        this.umbraClient.login(
-            UmbraLoginRequest.create({ client: this.clientProgramInfo }),
-            (error, response) => {
-                instance.log("debug", "Sending login Request to Umbra");
-                if (error) {
-                    onError();
-                    instance.log("error", error.message);
-                    return;
-                }
-                this.metadata = new GRPC.Metadata();
-                this.metadata.add("SessionID", response.sessionId);
-                this.connectedClient = new ConnectedClientServiceClient(
-                    this.endpoint,
-                    GRPC.credentials.createInsecure()
-                );
-                this.connectedClient.reportReadyToWork(
-                    UmbraClientReadyToWorkNotification.create({
-                        state: ReadyToWorkState.create({ readyToWork: true })
-                    }),
-                    this.metadata,
-                    (error, response) => {
-                        if (error) {
-                            onError();
-                            return;
-                        }
-                        this.instance.log(
-                            "debug",
-                            response.message?.formatString ?? ""
-                        );
-                        if (response.ok)
-                            instance.updateStatus(InstanceStatus.Ok);
-                    }
-                );
-                const stream = this.connectedClient.ping(this.metadata);
-                stream.on("error", (err: Error) => {
-                    instance.log("error", "In Ping stream: " + err.message);
-                    onError();
-                });
-                stream.on("data", (data: PingPong) => {
-                    instance.log(
-                        "debug",
-                        `${data.clientname}: ${data.responder}`
-                    );
-                });
-                stream.on("end", () => {
-                    instance.log("debug", "stream end");
-                    onClose();
-                });
-                this.interval = setInterval(
-                    () => stream.write(PingPong.create()),
-                    10000
-                );
+	public login(netid: string, instance: DMXCModuleInstance, onClose: () => void, onError: () => void): void {
+		if (this.clientProgramInfo.clientInfo) {
+			this.clientProgramInfo.clientInfo.networkid = netid
+			this.clientProgramInfo.clientTimestampUTC = new Date().valueOf()
+		}
+		this.umbraClient.login(UmbraLoginRequest.create({ client: this.clientProgramInfo }), (error, response) => {
+			instance.log('debug', 'Sending login Request to Umbra')
+			if (error) {
+				onError()
+				instance.log('error', error.message)
+				return
+			}
+			this.metadata = new GRPC.Metadata()
+			this.metadata.add('SessionID', response.sessionId)
+			this.connectedClient = new ConnectedClientServiceClient(this.endpoint, GRPC.credentials.createInsecure())
+			this.connectedClient.reportReadyToWork(
+				UmbraClientReadyToWorkNotification.create({
+					state: ReadyToWorkState.create({ readyToWork: true }),
+				}),
+				this.metadata,
+				(error, response) => {
+					if (error) {
+						onError()
+						return
+					}
+					this.instance.log('debug', response.message?.formatString ?? '')
+					if (response.ok) instance.updateStatus(InstanceStatus.Ok)
+				},
+			)
+			const stream = this.connectedClient.ping(this.metadata)
+			stream.on('error', (err: Error) => {
+				instance.log('error', 'In Ping stream: ' + err.message)
+				onError()
+			})
+			stream.on('data', (data: PingPong) => {
+				instance.log('debug', `${data.clientname}: ${data.responder}`)
+			})
+			stream.on('end', () => {
+				instance.log('debug', 'stream end')
+				onClose()
+			})
+			this.interval = setInterval(() => stream.write(PingPong.create()), 10000)
 
-                new UserClientClient(
-                    this.endpoint,
-                    GRPC.credentials.createInsecure()
-                ).bind(
-                    UserContextRequest.create({
-                        requestId: this.instance.getRequestId(),
-                        username: instance.config?.username ?? "DMXCDefault",
-                        passwordHash: hashPasswordDMXC(
-                            instance.config?.password ?? "DMXC3"
-                        )
-                    }),
-                    this.metadata,
-                    (error, _) => {
-                        if (error) {
-                            instance.log(
-                                "error",
-                                "While binding user: " + error.message
-                            );
-                            onError();
-                            return;
-                        }
-                        if (!this.metadata) {
-                            instance.log("error", "Metadata not set");
-                            return;
-                        }
+			new UserClientClient(this.endpoint, GRPC.credentials.createInsecure()).bind(
+				UserContextRequest.create({
+					requestId: this.instance.getRequestId(),
+					username: instance.config?.username ?? 'DMXCDefault',
+					passwordHash: hashPasswordDMXC(instance.config?.password ?? 'DMXC3'),
+				}),
+				this.metadata,
+				(error, _) => {
+					if (error) {
+						instance.log('error', 'While binding user: ' + error.message)
+						onError()
+						return
+					}
+					if (!this.metadata) {
+						instance.log('error', 'Metadata not set')
+						return
+					}
 
-                        try {
-                            this.clients.push(
-                                new ExecutorClient(
-                                    this.endpoint,
-                                    this.metadata,
-                                    instance
-                                )
-                            );
-                            this.clients.push(
-                                new MacroClient(
-                                    this.endpoint,
-                                    this.metadata,
-                                    instance
-                                )
-                            );
-                            this.clients.push(
-                                new CuelistClient(
-                                    this.endpoint,
-                                    this.metadata,
-                                    instance
-                                )
-                            );
+					try {
+						this.clients.push(new ExecutorClient(this.endpoint, this.metadata, instance))
+						this.clients.push(new MacroClient(this.endpoint, this.metadata, instance))
+						this.clients.push(new CuelistClient(this.endpoint, this.metadata, instance))
 
-                            this.updateActions();
-                            this.updateFeedbacks();
+						this.updateActions()
+						this.updateFeedbacks()
 
-                            this.clients.forEach((client) => {
-                                void client.startClient(
-                                    this.updatePresets.bind(this),
-                                    this.updateActions.bind(this),
-                                    this.updateFeedbacks.bind(this),
-                                    this.updateVariables.bind(this)
-                                );
-                            });
-                        } catch (err) {
-                            const er = err as Error;
-                            instance.log(
-                                "error",
-                                "Something died while retrieving changes: " +
-                                    er.message
-                            );
-                            onError();
-                        }
-                    }
-                );
-            }
-        );
-    }
+						this.clients.forEach((client) => {
+							void client.startClient(
+								this.updatePresets.bind(this),
+								this.updateActions.bind(this),
+								this.updateFeedbacks.bind(this),
+								this.updateVariables.bind(this),
+							)
+						})
+					} catch (err) {
+						const er = err as Error
+						instance.log('error', 'Something died while retrieving changes: ' + er.message)
+						onError()
+					}
+				},
+			)
+		})
+	}
 
-    updatePresets() {
-        const presets: CompanionPresetDefinitions = {};
-        for (const p of this.clients.map((c) => c.generatePresets())) {
-            for (const key in p) {
-                presets[key] = p[key];
-            }
-        }
-        this.instance.setPresetDefinitions({});
-        this.instance.setPresetDefinitions(presets);
-    }
+	updatePresets(): void {
+		const presets: CompanionPresetDefinitions = {}
+		for (const p of this.clients.map((c) => c.generatePresets())) {
+			for (const key in p) {
+				presets[key] = p[key]
+			}
+		}
+		this.instance.setPresetDefinitions({})
+		this.instance.setPresetDefinitions(presets)
+	}
 
-    updateActions() {
-        const actions: CompanionActionDefinitions = {};
-        for (const a of this.clients.map((c) => c.generateActions())) {
-            for (const key in a) {
-                actions[key] = a[key];
-            }
-        }
-        this.instance.setActionDefinitions(actions);
-    }
+	updateActions(): void {
+		const actions: CompanionActionDefinitions = {}
+		for (const a of this.clients.map((c) => c.generateActions())) {
+			for (const key in a) {
+				actions[key] = a[key]
+			}
+		}
+		this.instance.setActionDefinitions(actions)
+	}
 
-    updateFeedbacks() {
-        const feedbacks: CompanionFeedbackDefinitions = {};
-        for (const f of this.clients.map((c) => c.generateFeedbacks())) {
-            for (const key in f) {
-                feedbacks[key] = f[key];
-            }
-        }
+	updateFeedbacks(): void {
+		const feedbacks: CompanionFeedbackDefinitions = {}
+		for (const f of this.clients.map((c) => c.generateFeedbacks())) {
+			for (const key in f) {
+				feedbacks[key] = f[key]
+			}
+		}
 
-        this.instance.log(
-            "debug",
-            `Set feedbacks: ${JSON.stringify(feedbacks)}`
-        );
+		this.instance.log('debug', `Set feedbacks: ${JSON.stringify(feedbacks)}`)
 
-        this.instance.setFeedbackDefinitions(feedbacks);
-    }
+		this.instance.setFeedbackDefinitions(feedbacks)
+	}
 
-    updateVariables() {
-        this.instance.setVariableDefinitions(
-            this.clients.map((c) => c.generateVariables()).flat()
-        );
-    }
+	updateVariables(): void {
+		this.instance.setVariableDefinitions(this.clients.map((c) => c.generateVariables()).flat())
+	}
 
-    public getMetadata(): GRPC.Metadata | undefined {
-        return this.metadata;
-    }
+	public getMetadata(): GRPC.Metadata | undefined {
+		return this.metadata
+	}
 
-    public destroy(instance: DMXCModuleInstance, after: () => void): void {
-        this.connectedClient?.close();
-        this.clients.forEach((val, _) => {
-            val.close();
-        });
-        clearInterval(this.interval);
-        this.umbraClient.logoff(
-            UmbraLogoffRequest.create({
-                client: this.clientProgramInfo,
-                sessionId: this.metadata?.get("SessionID")[0].toString()
-            }),
-            (error, response) => {
-                if (error) {
-                    instance.log(
-                        "error",
-                        "While logging off: " + error.message
-                    );
-                    return;
-                }
-                instance.log("debug", response.bye);
-                this.umbraClient.close();
-                after();
-            }
-        );
-    }
+	public destroy(instance: DMXCModuleInstance, after: () => void): void {
+		this.connectedClient?.close()
+		this.clients.forEach((val, _) => {
+			val.close()
+		})
+		clearInterval(this.interval)
+		this.umbraClient.logoff(
+			UmbraLogoffRequest.create({
+				client: this.clientProgramInfo,
+				// sessionId: this.metadata?.get('SessionID')[0].toString(),
+			}),
+			(error, response) => {
+				if (error) {
+					instance.log('error', 'While logging off: ' + error.message)
+					return
+				}
+				instance.log('debug', response.bye)
+				this.umbraClient.close()
+				after()
+			},
+		)
+	}
 }

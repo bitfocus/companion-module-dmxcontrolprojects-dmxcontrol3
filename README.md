@@ -8,22 +8,22 @@ This repository provides a Bitfocus Companion module for [DMXControl 3](https://
 
 1. Clone this repository:
 
-    ```bash
-    git clone https://github.com/bitfocus/companion-module-dmxcontrolprojects-dmxcontrol3.git
-    cd companion-module-dmxcontrolprojects-dmxcontrol3
-    ```
+   ```bash
+   git clone https://github.com/bitfocus/companion-module-dmxcontrolprojects-dmxcontrol3.git
+   cd companion-module-dmxcontrolprojects-dmxcontrol3
+   ```
 
 2. Install dependencies using Yarn:
 
-    ```bash
-    yarn install
-    ```
+   ```bash
+   yarn install
+   ```
 
 3. Build the module:
 
-    ```bash
-    yarn build
-    # To package the module use "yarn package"
-    ```
+   ```bash
+   yarn build
+   # To package the module use "yarn package"
+   ```
 
 See [HELP.md](./companion/HELP.md) and [LICENSE](./LICENSE)

@@ -1,28 +1,28 @@
-import {
-    CompanionActionDefinitions,
-    CompanionFeedbackDefinitions,
-    CompanionPresetDefinitions,
-    CompanionVariableDefinition
-} from "@companion-module/base";
-import { Client } from "@grpc/grpc-js";
+import type {
+	CompanionActionDefinitions,
+	CompanionFeedbackDefinitions,
+	CompanionPresetDefinitions,
+	CompanionVariableDefinition,
+} from '@companion-module/base'
+import { Client } from '@grpc/grpc-js'
 
 export interface IDMXCClient {
-    grpcclient: Client;
+	grpcclient: Client
 
-    startClient(
-        updatePresets: () => void,
-        updateActions: () => void,
-        updateFeedbacks: () => void,
-        updateVariables: () => void
-    ): void | Promise<void>;
+	startClient(
+		updatePresets: () => void,
+		updateActions: () => void,
+		updateFeedbacks: () => void,
+		updateVariables: () => void,
+	): void | Promise<void>
 
-    generateActions(): CompanionActionDefinitions;
+	generateActions(): CompanionActionDefinitions
 
-    generateFeedbacks(): CompanionFeedbackDefinitions;
+	generateFeedbacks(): CompanionFeedbackDefinitions
 
-    generatePresets(): CompanionPresetDefinitions;
+	generatePresets(): CompanionPresetDefinitions
 
-    generateVariables(): CompanionVariableDefinition[];
+	generateVariables(): CompanionVariableDefinition[]
 
-    close(): void;
+	close(): void
 }
