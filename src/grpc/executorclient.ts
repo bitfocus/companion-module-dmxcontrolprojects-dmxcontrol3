@@ -12,7 +12,7 @@ import {
 	ExecutorDescriptor,
 	SetExecutorValuesRequest,
 } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf.Executor'
-import type { IDMXCClient } from './idmxcclient.js'
+import type { HealthReporter, IDMXCClient } from './idmxcclient.js'
 import {
 	combineRgb,
 	type CompanionActionDefinition,
@@ -49,6 +49,7 @@ export class ExecutorClient implements IDMXCClient {
 		endpoint: string,
 		private metadata: GRPC.Metadata,
 		private instance: DMXCModuleInstance,
+		private health: HealthReporter,
 	) {
 		this.repo = new RepositoryBase<ExecutorDescriptor>()
 		this.grpcclient = new ExecutorClientClient(endpoint, GRPC.credentials.createInsecure())
@@ -63,9 +64,11 @@ export class ExecutorClient implements IDMXCClient {
 			callOpts(),
 			(error, response) => {
 				if (error) {
-					this.instance.log('error', error.message)
+					this.instance.log('error', 'Loading executors failed: ' + error.message)
+					this.health.degraded('executors-load', 'Could not load executors')
 					return
 				}
+				this.health.recovered('executors-load')
 				response.executors.forEach((executor) => {
 					this.repo.add(executor)
 				})
@@ -106,7 +109,8 @@ export class ExecutorClient implements IDMXCClient {
 				}
 			})
 			.on('error', (error: Error) => {
-				this.instance.log('error', error.name)
+				this.instance.log('error', 'Executor change stream: ' + error.message)
+				this.health.degraded('executors-stream', 'Executor updates lost')
 			})
 	}
 
@@ -158,7 +162,10 @@ export class ExecutorClient implements IDMXCClient {
 							break
 					}
 					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
 					})
@@ -210,7 +217,10 @@ export class ExecutorClient implements IDMXCClient {
 							break
 					}
 					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
 					})
@@ -247,7 +257,10 @@ export class ExecutorClient implements IDMXCClient {
 					request.executorId = executor.id
 					request.faderIncrement = event.options.step / 100
 					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
 					})
@@ -284,7 +297,10 @@ export class ExecutorClient implements IDMXCClient {
 					request.executorId = executor.id
 					request.faderIncrement = -event.options.step / 100
 					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
 					})
@@ -321,7 +337,10 @@ export class ExecutorClient implements IDMXCClient {
 					request.executorId = executor.id
 					request.faderAbsolut = event.options.value / 100
 					this.grpcclient.setExecutorValues(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
 					})

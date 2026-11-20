@@ -31,7 +31,7 @@ import {
 } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf'
 import { UserContextRequest } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf.User'
 import { UserClientClient } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobufClient'
-import type { IDMXCClient } from './idmxcclient.js'
+import type { HealthReporter, IDMXCClient } from './idmxcclient.js'
 import { CuelistClient } from './cuelistclient.js'
 
 export class GRPCClient {
@@ -46,6 +46,24 @@ export class GRPCClient {
 
 	private clients: IDMXCClient[]
 	private userclient?: UserClientClient
+
+	/** True once login, ready-to-work and user bind succeeded */
+	private connected = false
+	private destroyed = false
+	/** Components that reported a partial failure, mapped to their message */
+	private degradedComponents = new Map<string, string>()
+
+	private health: HealthReporter = {
+		degraded: (component, message) => {
+			if (this.destroyed) return
+			this.degradedComponents.set(component, message)
+			this.refreshStatus()
+		},
+		recovered: (component) => {
+			if (this.destroyed || !this.degradedComponents.delete(component)) return
+			this.refreshStatus()
+		},
+	}
 
 	constructor(
 		host: string,
@@ -129,7 +147,38 @@ export class GRPCClient {
 		)
 	}
 
-	public login(netid: string, instance: DMXCModuleInstance, onClose: () => void, onError: () => void): void {
+	/**
+	 * Sets the instance status from the connection health: Ok when fully connected,
+	 * UnknownWarning while any component reported a partial failure.
+	 */
+	private refreshStatus(): void {
+		if (this.destroyed || !this.connected) return
+		if (this.degradedComponents.size > 0) {
+			this.instance.updateStatus(InstanceStatus.UnknownWarning, [...this.degradedComponents.values()].join('; '))
+		} else {
+			this.instance.updateStatus(InstanceStatus.Ok)
+		}
+	}
+
+	public login(
+		netid: string,
+		instance: DMXCModuleInstance,
+		onClose: (message: string) => void,
+		onError: (message: string) => void,
+	): void {
+		// Ignore failures caused by our own teardown (closing clients cancels their calls and streams)
+		const fail = (message: string) => {
+			if (this.destroyed) return
+			this.connected = false
+			instance.log('error', message)
+			onError(message)
+		}
+		const closed = (message: string) => {
+			if (this.destroyed) return
+			this.connected = false
+			instance.log('warn', message)
+			onClose(message)
+		}
 		if (this.clientProgramInfo.clientInfo) {
 			this.clientProgramInfo.clientInfo.networkid = netid
 			this.clientProgramInfo.clientTimestampUTC = new Date().valueOf()
@@ -141,8 +190,7 @@ export class GRPCClient {
 			(error, response) => {
 				instance.log('debug', 'Sending login Request to Umbra')
 				if (error) {
-					onError()
-					instance.log('error', error.message)
+					fail('Login failed: ' + error.message)
 					return
 				}
 				this.metadata = new GRPC.Metadata()
@@ -156,24 +204,27 @@ export class GRPCClient {
 					callOpts(),
 					(error, response) => {
 						if (error) {
-							onError()
+							fail('Report ready to work failed: ' + error.message)
 							return
 						}
 						this.instance.log('debug', response.message?.formatString ?? '')
-						if (response.ok) instance.updateStatus(InstanceStatus.Ok)
+						if (response.ok) this.health.recovered('ready')
+						else
+							this.health.degraded(
+								'ready',
+								'Server did not accept ready to work: ' + (response.message?.formatString ?? ''),
+							)
 					},
 				)
 				const stream = this.connectedClient.ping(this.metadata)
 				stream.on('error', (err: Error) => {
-					instance.log('error', 'In Ping stream: ' + err.message)
-					onError()
+					fail('Connection lost (ping stream): ' + err.message)
 				})
 				stream.on('data', (data: PingPong) => {
 					instance.log('debug', `${data.clientname}: ${data.responder}`)
 				})
 				stream.on('end', () => {
-					instance.log('debug', 'stream end')
-					onClose()
+					closed('Connection closed by server')
 				})
 				this.interval = setInterval(() => stream.write(PingPong.create()), 10000)
 
@@ -189,19 +240,18 @@ export class GRPCClient {
 					callOpts(),
 					(error, _) => {
 						if (error) {
-							instance.log('error', 'While binding user: ' + error.message)
-							onError()
+							fail('Binding user failed: ' + error.message)
 							return
 						}
 						if (!this.metadata) {
-							instance.log('error', 'Metadata not set')
+							fail('Session metadata not set after login')
 							return
 						}
 
 						try {
-							this.clients.push(new ExecutorClient(this.endpoint, this.metadata, instance))
-							this.clients.push(new MacroClient(this.endpoint, this.metadata, instance))
-							this.clients.push(new CuelistClient(this.endpoint, this.metadata, instance))
+							this.clients.push(new ExecutorClient(this.endpoint, this.metadata, instance, this.health))
+							this.clients.push(new MacroClient(this.endpoint, this.metadata, instance, this.health))
+							this.clients.push(new CuelistClient(this.endpoint, this.metadata, instance, this.health))
 
 							this.updateActions()
 							this.updateFeedbacks()
@@ -214,10 +264,10 @@ export class GRPCClient {
 									this.updateVariables.bind(this),
 								)
 							})
+							this.connected = true
+							this.refreshStatus()
 						} catch (err) {
-							const er = err as Error
-							instance.log('error', 'Something died while retrieving changes: ' + er.message)
-							onError()
+							fail('Setting up clients failed: ' + (err as Error).message)
 						}
 					},
 				)
@@ -268,6 +318,8 @@ export class GRPCClient {
 	}
 
 	public destroy(instance: DMXCModuleInstance, after: () => void): void {
+		this.destroyed = true
+		this.connected = false
 		this.connectedClient?.close()
 		this.clients.forEach((val) => {
 			val.close()

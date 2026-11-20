@@ -54,7 +54,7 @@ export function startDiscovery(
 	config: Config,
 	instance: DMXCModuleInstance,
 	success: (client: GRPCClient, config: Config) => void,
-	errorclose: () => void,
+	errorclose: (message: string) => void,
 ): dgram.Socket {
 	const client = dgram.createSocket({ type: 'udp4', reuseAddr: true })
 

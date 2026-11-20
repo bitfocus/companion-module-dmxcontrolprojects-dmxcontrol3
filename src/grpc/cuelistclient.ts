@@ -15,7 +15,7 @@ import {
 	type CompanionVariableDefinition,
 	type CompanionVariableValue,
 } from '@companion-module/base'
-import type { IDMXCClient } from './idmxcclient.js'
+import type { HealthReporter, IDMXCClient } from './idmxcclient.js'
 import {
 	CuelistClientClient,
 	ParameterClientClient,
@@ -132,6 +132,7 @@ export class CuelistClient implements IDMXCClient {
 		endpoint: string,
 		private metadata: GRPC.Metadata,
 		private instance: DMXCModuleInstance,
+		private health: HealthReporter,
 	) {
 		this.repo = new RepositoryBase<CuelistDescriptor>()
 		this.progressFeedbacks = new Map()
@@ -227,6 +228,7 @@ export class CuelistClient implements IDMXCClient {
 				(err, res) => (err != null ? reject(err) : resolve(res)),
 			),
 		)
+		this.health.recovered('cuelists')
 		for (const cuelist of cuelistRes.cuelists) {
 			this.repo.update(cuelist)
 		}
@@ -278,7 +280,8 @@ export class CuelistClient implements IDMXCClient {
 				}
 			})
 			this.changeStream.on('error', (error: Error) => {
-				this.instance.log('error', 'In cuelist changes stream: ' + error.name)
+				this.instance.log('error', 'In cuelist changes stream: ' + error.message)
+				if (this.isRunning) this.health.degraded('cuelists', 'Cuelist updates interrupted')
 			})
 			this.changeStream.on('close', () => {
 				this.instance.log('warn', 'Cuelist changed stream was closed')
@@ -309,6 +312,7 @@ export class CuelistClient implements IDMXCClient {
 			this.progressStream.on('error', (err) => {
 				this.instance.log('error', 'cuelist progress stream: ' + err.message)
 				if (this.isRunning) {
+					this.health.degraded('cuelists', 'Cuelist updates interrupted')
 					this.instance.log('warn', 'Attempting to reopen')
 					void this.startClient(this.updatePresets, updateActions, updateFeedbacks, updateVariables)
 				}
@@ -320,12 +324,14 @@ export class CuelistClient implements IDMXCClient {
 		this.pollInterval ??= setInterval(() => {
 			this.getAllCuelists().catch((err: Error) => {
 				this.instance.log('error', 'While polling cuelists: ' + err.message)
+				this.health.degraded('cuelists', 'Could not load cuelists')
 			})
 		}, CUELIST_POLL_INTERVAL)
 		try {
 			await this.getAllCuelists()
 		} catch (err) {
 			this.instance.log('error', 'While getting cuelists: ' + (err as Error).message)
+			this.health.degraded('cuelists', 'Could not load cuelists')
 		}
 	}
 

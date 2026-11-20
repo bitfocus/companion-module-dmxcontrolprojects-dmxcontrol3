@@ -13,7 +13,7 @@ import {
 	MacroDescriptor,
 } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobuf.Macro'
 import { MacroClientClient } from '@dmxcontrolprojects/dmxcontrol3-network-interface/LumosProtobufClient'
-import type { IDMXCClient } from './idmxcclient.js'
+import type { HealthReporter, IDMXCClient } from './idmxcclient.js'
 import {
 	combineRgb,
 	type CompanionActionDefinition,
@@ -50,6 +50,7 @@ export class MacroClient implements IDMXCClient {
 		endpoint: string,
 		private metadata: Metadata,
 		private instance: DMXCModuleInstance,
+		private health: HealthReporter,
 	) {
 		this.repo = new RepositoryBase<MacroDescriptor>()
 		this.grpcclient = new MacroClientClient(endpoint, GRPC.credentials.createInsecure())
@@ -64,9 +65,11 @@ export class MacroClient implements IDMXCClient {
 			callOpts(),
 			(error, response) => {
 				if (error) {
-					this.instance.log('error', error.message)
+					this.instance.log('error', 'Loading macros failed: ' + error.message)
+					this.health.degraded('macros-load', 'Could not load macros')
 					return
 				}
+				this.health.recovered('macros-load')
 				response.macros.forEach((macro) => {
 					this.repo.add(macro)
 				})
@@ -112,7 +115,8 @@ export class MacroClient implements IDMXCClient {
 				)
 			})
 			.on('error', (err: Error) => {
-				this.instance.log('error', err.name)
+				this.instance.log('error', 'Macro change stream: ' + err.message)
+				this.health.degraded('macros-stream', 'Macro updates lost')
 			})
 	}
 
@@ -149,7 +153,10 @@ export class MacroClient implements IDMXCClient {
 						active: true,
 					})
 					this.grpcclient.setMacroButtonState(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
 					})
@@ -186,7 +193,10 @@ export class MacroClient implements IDMXCClient {
 						active: false,
 					})
 					this.grpcclient.setMacroButtonState(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error pressing Executorbutton: ${response.message?.formatString ?? ''}`)
 					})
@@ -236,7 +246,10 @@ export class MacroClient implements IDMXCClient {
 					request.faderNumber = event.options.num
 					request.increment = event.options.step / 100
 					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error setting Macrofader: ${response.message?.formatString ?? ''}`)
 					})
@@ -287,7 +300,10 @@ export class MacroClient implements IDMXCClient {
 					request.faderNumber = event.options.num
 					request.increment = -event.options.step / 100
 					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error setting Macrofader: ${response.message?.formatString ?? ''}`)
 					})
@@ -338,7 +354,10 @@ export class MacroClient implements IDMXCClient {
 					request.faderNumber = event.options.num
 					request.absolut = event.options.value / 100
 					this.grpcclient.setMacroFaderState(request, this.metadata, callOpts(), (error, response) => {
-						if (error) this.instance.log('error', error.message)
+						if (error) {
+							this.instance.log('error', error.message)
+							return
+						}
 						if (!response.ok)
 							this.instance.log('error', `Error setting Macrofader: ${response.message?.formatString ?? ''}`)
 					})

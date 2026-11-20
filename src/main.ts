@@ -45,11 +45,11 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 			this.UmbraClient.login(
 				config.netid,
 				this,
-				() => {
-					this.updateStatus(InstanceStatus.Disconnected)
+				(message) => {
+					this.updateStatus(InstanceStatus.Disconnected, message)
 				},
-				() => {
-					this.updateStatus(InstanceStatus.ConnectionFailure)
+				(message) => {
+					this.updateStatus(InstanceStatus.ConnectionFailure, message)
 				},
 			)
 		} else {
@@ -73,8 +73,8 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 				this.UmbraClient = client
 				this.saveConfig(config)
 			},
-			() => {
-				this.errorhandler(generation)
+			(message) => {
+				this.errorhandler(generation, message)
 			},
 		)
 	}
@@ -84,10 +84,10 @@ export class DMXCModuleInstance extends InstanceBase<Config> {
 	 * Ignores calls from outdated connections and calls while a reconnect is already in progress,
 	 * since one failure typically fires several callbacks (ping stream error + end, bind error, ...).
 	 */
-	errorhandler(generation: number): void {
+	errorhandler(generation: number, message?: string): void {
 		if (this.destroyed || this.reconnecting || generation !== this.connectionGeneration) return
 		this.reconnecting = true
-		this.updateStatus(InstanceStatus.Disconnected)
+		this.updateStatus(InstanceStatus.Disconnected, message ? `${message} – reconnecting` : 'Reconnecting')
 
 		const restart = () => {
 			this.UmbraClient = undefined
